@@ -18,6 +18,43 @@ export default function App() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
 
+  // Theme logic
+  const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'auto'>(() => {
+    const saved = localStorage.getItem('themeMode');
+    return (saved as 'light' | 'dark' | 'auto') || 'auto';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('themeMode', themeMode);
+    
+    const applyTheme = (isDark: boolean) => {
+      const root = document.documentElement;
+      if (isDark) {
+        root.classList.add('dark');
+        root.setAttribute('data-theme', 'dark');
+      } else {
+        root.classList.remove('dark');
+        root.removeAttribute('data-theme');
+      }
+    };
+
+    if (themeMode === 'light') {
+      applyTheme(false);
+    } else if (themeMode === 'dark') {
+      applyTheme(true);
+    } else {
+      // auto
+      const checkTime = () => {
+        const hour = new Date().getHours();
+        const isDark = hour >= 20 || hour < 6; // 8:00 PM to 6:00 AM
+        applyTheme(isDark);
+      };
+      checkTime();
+      const interval = setInterval(checkTime, 60000); // Check every minute
+      return () => clearInterval(interval);
+    }
+  }, [themeMode]);
+
   useEffect(() => {
     async function fetchProfile() {
       if (user) {
@@ -65,5 +102,11 @@ export default function App() {
     );
   }
 
-  return <Dashboard profile={profile} />;
+  return (
+    <Dashboard 
+      profile={profile} 
+      themeMode={themeMode} 
+      onThemeChange={setThemeMode} 
+    />
+  );
 }

@@ -5,7 +5,7 @@ import { UserProfile, Meal, Workout, StepLog } from '../types';
 import { Button } from './ui/button';
 import { Progress } from './ui/progress';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Plus, Settings, History, Utensils, PieChart as PieChartIcon, Camera, Dumbbell, Footprints, TrendingUp, X, Menu, LogOut, ChevronRight, Trash2, Target, HeartPulse } from 'lucide-react';
+import { Plus, Settings, History, Utensils, PieChart as PieChartIcon, Camera, Dumbbell, Footprints, TrendingUp, X, Menu, LogOut, ChevronRight, Trash2, Target, HeartPulse, Sun, Moon } from 'lucide-react';
 import { format, startOfDay, addDays, subDays, isSameDay, startOfWeek, eachDayOfInterval } from 'date-fns';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 import MealLogger from './MealLogger';
@@ -60,7 +60,7 @@ const SwipeToDeleteItem = ({ children, onDelete, isReadOnly }: { children: React
         dragElastic={0.1}
         onDragEnd={handleDragEnd}
         animate={controls}
-        className="relative bg-white w-full rounded-[24px] z-10"
+        className="relative bg-white dark:bg-[#2D2D2A] w-full rounded-[24px] z-10"
         style={{ touchAction: "pan-y" }}
       >
         <div className="flex items-center">
@@ -88,9 +88,11 @@ type ViewType = 'dashboard' | 'meals' | 'activities';
 
 interface DashboardProps {
   profile: UserProfile;
+  themeMode: 'light' | 'dark' | 'auto';
+  onThemeChange: (mode: 'light' | 'dark' | 'auto') => void;
 }
 
-export default function Dashboard({ profile }: DashboardProps) {
+export default function Dashboard({ profile, themeMode, onThemeChange }: DashboardProps) {
   const [meals, setMeals] = useState<Meal[]>([]);
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [steps, setSteps] = useState<StepLog | null>(null);
@@ -349,10 +351,22 @@ export default function Dashboard({ profile }: DashboardProps) {
     }
   };
 
+  const cycleTheme = () => {
+    if (themeMode === 'light') onThemeChange('dark');
+    else if (themeMode === 'dark') onThemeChange('auto');
+    else onThemeChange('light');
+  };
+
+  const renderThemeIcon = () => {
+    if (themeMode === 'light') return <Sun className="h-5 w-5" />;
+    if (themeMode === 'dark') return <Moon className="h-5 w-5" />;
+    return <div className="text-[10px] font-bold">AUTO</div>;
+  };
+
   return (
-    <div className="flex min-h-screen bg-[#F8F7F2] font-sans text-[#2D2D2A] overflow-x-hidden">
+    <div className="flex min-h-screen bg-[#F8F7F2] dark:bg-[#1a1a18] font-sans text-[#2D2D2A] dark:text-[#F8F7F2] overflow-x-hidden transition-colors">
       {/* Sidebar - Desktop */}
-      <aside className="hidden lg:flex w-72 flex-col border-r border-[#E8E6E0] bg-white p-8 sticky top-0 h-screen">
+      <aside className="hidden lg:flex w-72 flex-col border-r border-[#E8E6E0] dark:border-[#3D3D3A] bg-white dark:bg-[#2D2D2A] p-8 sticky top-0 h-screen transition-colors">
         <div className="flex items-center gap-2 text-2xl font-serif font-bold text-[#5A6E4B] mb-12">
           <Utensils className="h-6 w-6" />
           <span>Cal AI</span>
@@ -361,7 +375,7 @@ export default function Dashboard({ profile }: DashboardProps) {
           <div 
             onClick={() => { setActiveView('dashboard'); setIsMobileMenuOpen(false); }}
             className={`flex items-center gap-3 rounded-xl px-4 py-3 font-semibold transition-colors cursor-pointer ${
-              activeView === 'dashboard' ? 'bg-[#F8F7F2] text-[#5A6E4B]' : 'text-[#8E8D8A] hover:bg-[#F8F7F2]'
+              activeView === 'dashboard' ? 'bg-[#F8F7F2] dark:bg-[#1a1a18] text-[#5A6E4B]' : 'text-[#8E8D8A] hover:bg-[#F8F7F2] dark:hover:bg-[#1a1a18]'
             }`}
           >
             <TrendingUp className="h-5 w-5" />
@@ -370,7 +384,7 @@ export default function Dashboard({ profile }: DashboardProps) {
           <div 
             onClick={() => { setActiveView('meals'); setIsMobileMenuOpen(false); }}
             className={`flex items-center gap-3 rounded-xl px-4 py-3 font-medium transition-colors cursor-pointer ${
-              activeView === 'meals' ? 'bg-[#F8F7F2] text-[#5A6E4B]' : 'text-[#8E8D8A] hover:bg-[#F8F7F2]'
+              activeView === 'meals' ? 'bg-[#F8F7F2] dark:bg-[#1a1a18] text-[#5A6E4B]' : 'text-[#8E8D8A] hover:bg-[#F8F7F2] dark:hover:bg-[#1a1a18]'
             }`}
           >
             <Utensils className="h-5 w-5" />
@@ -379,16 +393,16 @@ export default function Dashboard({ profile }: DashboardProps) {
           <div 
             onClick={() => { setActiveView('activities'); setIsMobileMenuOpen(false); }}
             className={`flex items-center gap-3 rounded-xl px-4 py-3 font-medium transition-colors cursor-pointer ${
-              activeView === 'activities' ? 'bg-[#F8F7F2] text-[#5A6E4B]' : 'text-[#8E8D8A] hover:bg-[#F8F7F2]'
+              activeView === 'activities' ? 'bg-[#F8F7F2] dark:bg-[#1a1a18] text-[#5A6E4B]' : 'text-[#8E8D8A] hover:bg-[#F8F7F2] dark:hover:bg-[#1a1a18]'
             }`}
           >
             <Dumbbell className="h-5 w-5" />
             Activities
           </div>
         </nav>
-        <div className="mt-auto pt-8 border-t border-[#E8E6E0]">
+        <div className="mt-auto pt-8 border-t border-[#E8E6E0] dark:border-[#3D3D3A]">
           <div className="flex items-center gap-3 mb-6">
-            <div className="h-10 w-10 rounded-full bg-[#DCD9D1]" />
+            <div className="h-10 w-10 rounded-full bg-[#DCD9D1] dark:bg-[#3D3D3A]" />
             <div className="min-w-0">
               <p className="font-bold text-sm truncate">{profile.name}</p>
               <p className="text-xs text-[#8E8D8A]">Premium Account</p>
@@ -396,7 +410,15 @@ export default function Dashboard({ profile }: DashboardProps) {
           </div>
           <Button 
             variant="ghost" 
-            className="w-full justify-start gap-3 rounded-xl px-4 py-3 font-medium text-[#8E8D8A] hover:bg-[#F8F7F2] hover:text-[#5A6E4B] mb-2"
+            className="w-full justify-start gap-3 rounded-xl px-4 py-3 font-medium text-[#8E8D8A] hover:bg-[#F8F7F2] dark:hover:bg-[#1a1a18] hover:text-[#5A6E4B] mb-2"
+            onClick={cycleTheme}
+          >
+            {renderThemeIcon()}
+            Theme: {themeMode.charAt(0).toUpperCase() + themeMode.slice(1)}
+          </Button>
+          <Button 
+            variant="ghost" 
+            className="w-full justify-start gap-3 rounded-xl px-4 py-3 font-medium text-[#8E8D8A] hover:bg-[#F8F7F2] dark:hover:bg-[#1a1a18] hover:text-[#5A6E4B] mb-2"
             onClick={() => setShowGoalEditor(true)}
           >
             <Target className="h-5 w-5" />
@@ -404,7 +426,7 @@ export default function Dashboard({ profile }: DashboardProps) {
           </Button>
           <Button 
             variant="ghost" 
-            className="w-full justify-start gap-3 rounded-xl px-4 py-3 font-medium text-[#8E8D8A] hover:bg-[#F8F7F2] hover:text-[#5A6E4B] mb-2"
+            className="w-full justify-start gap-3 rounded-xl px-4 py-3 font-medium text-[#8E8D8A] hover:bg-[#F8F7F2] dark:hover:bg-[#1a1a18] hover:text-[#5A6E4B] mb-2"
             onClick={() => setShowHealthSync(true)}
           >
             <HeartPulse className="h-5 w-5" />
@@ -412,7 +434,7 @@ export default function Dashboard({ profile }: DashboardProps) {
           </Button>
           <Button 
             variant="ghost" 
-            className="w-full justify-start gap-3 rounded-xl px-4 py-3 font-medium text-[#8E8D8A] hover:text-[#E57373] hover:bg-red-50"
+            className="w-full justify-start gap-3 rounded-xl px-4 py-3 font-medium text-[#8E8D8A] hover:text-[#E57373] hover:bg-red-50 dark:hover:bg-[#E57373]/10"
             onClick={() => auth.signOut()}
           >
             <LogOut className="h-5 w-5" />
@@ -423,16 +445,23 @@ export default function Dashboard({ profile }: DashboardProps) {
 
       {/* Main Content */}
       <main className="flex-1 max-w-7xl mx-auto w-full pb-32 lg:pb-10">
+        {/* Desktop Header for Theme (when sidebar not enough, but putting it in sidebar is fine. Let's add it to mobile header) */}
+        
         {/* Mobile Header */}
-        <header className="lg:hidden flex flex-col items-stretch bg-white border-b border-[#E8E6E0] sticky top-0 z-40">
+        <header className="lg:hidden flex flex-col items-stretch bg-white dark:bg-[#2D2D2A] border-b border-[#E8E6E0] dark:border-[#3D3D3A] sticky top-0 z-40 transition-colors">
           <div className="flex items-center justify-between p-6">
             <div className="flex items-center gap-2 text-xl font-serif font-bold text-[#5A6E4B]">
               <Utensils className="h-5 w-5" />
               <span>Cal AI</span>
             </div>
-            <Button variant="ghost" size="icon" onClick={() => setIsMobileMenuOpen(true)}>
-              <Menu className="h-6 w-6" />
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="icon" onClick={cycleTheme} className="text-[#8E8D8A]">
+                {renderThemeIcon()}
+              </Button>
+              <Button variant="ghost" size="icon" className="text-[#8E8D8A]" onClick={() => setIsMobileMenuOpen(true)}>
+                <Menu className="h-6 w-6" />
+              </Button>
+            </div>
           </div>
           
           {/* Day Selector - Mobile */}
@@ -449,7 +478,7 @@ export default function Dashboard({ profile }: DashboardProps) {
                   className={`flex flex-col items-center justify-center min-w-[56px] h-16 rounded-2xl transition-all ${
                     isSelected 
                       ? 'bg-[#5A6E4B] text-white shadow-lg' 
-                      : 'bg-[#F8F7F2] text-[#8E8D8A] hover:bg-[#F1F3EE]'
+                      : 'bg-[#F8F7F2] dark:bg-[#1a1a18] text-[#8E8D8A] hover:bg-[#F1F3EE] dark:bg-[#3D3D3A]'
                   }`}
                 >
                   <span className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${isSelected ? 'text-white/70' : ''}`}>
@@ -457,7 +486,7 @@ export default function Dashboard({ profile }: DashboardProps) {
                   </span>
                   <span className="text-lg font-black">{format(day, 'd')}</span>
                   {hasDataMap[dateKey] && (
-                    <div className={`h-1 w-1 rounded-full mt-1 ${isSelected ? 'bg-white' : 'bg-[#5A6E4B]'}`} />
+                    <div className={`h-1 w-1 rounded-full mt-1 ${isSelected ? 'bg-white dark:bg-[#2D2D2A]' : 'bg-[#5A6E4B]'}`} />
                   )}
                 </button>
               );
@@ -471,7 +500,7 @@ export default function Dashboard({ profile }: DashboardProps) {
               {/* Welcome Text & Desktop Day Selector */}
               <div className="col-span-1 xl:col-span-2 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                 <div>
-                  <h1 className="text-3xl lg:text-4xl font-serif font-bold text-[#2D2D2A]">
+                  <h1 className="text-3xl lg:text-4xl font-serif font-bold text-[#2D2D2A] dark:text-[#F8F7F2]">
                     Hi, {profile.name.split(' ')[0]}
                   </h1>
                   <p className="text-[#8E8D8A] mt-1 lg:text-lg">
@@ -490,13 +519,13 @@ export default function Dashboard({ profile }: DashboardProps) {
                         className={`flex flex-col items-center justify-center min-w-[70px] h-20 rounded-[24px] transition-all ${
                           isSelected 
                             ? 'bg-[#5A6E4B] text-white shadow-lg' 
-                            : 'bg-white border border-[#E8E6E0] text-[#8E8D8A] hover:bg-[#F8F7F2]'
+                            : 'bg-white dark:bg-[#2D2D2A] border border-[#E8E6E0] dark:border-[#3D3D3A] text-[#8E8D8A] hover:bg-[#F8F7F2] dark:bg-[#1a1a18]'
                         }`}
                       >
                         <span className="text-[10px] font-bold uppercase tracking-widest mb-1">{format(day, 'EEE')}</span>
                         <span className="text-xl font-black">{format(day, 'd')}</span>
                         {hasDataMap[dateKey] && (
-                          <div className={`h-1.5 w-1.5 rounded-full mt-1 ${isSelected ? 'bg-white' : 'bg-[#5A6E4B]'}`} />
+                          <div className={`h-1.5 w-1.5 rounded-full mt-1 ${isSelected ? 'bg-white dark:bg-[#2D2D2A]' : 'bg-[#5A6E4B]'}`} />
                         )}
                       </button>
                     );
@@ -507,7 +536,7 @@ export default function Dashboard({ profile }: DashboardProps) {
               {/* Left Column */}
               <div className="space-y-8">
                 {/* Main Stats Card */}
-                <Card className="rounded-[40px] border-[#E8E6E0] bg-white p-8 lg:p-12 shadow-sm relative overflow-hidden">
+                <Card className="rounded-[40px] border-[#E8E6E0] dark:border-[#3D3D3A] bg-white dark:bg-[#2D2D2A] p-8 lg:p-12 shadow-sm relative overflow-hidden">
                   <div className="flex flex-col lg:flex-row items-center gap-10">
                     <div className="relative flex h-60 w-60 lg:h-72 lg:w-72 items-center justify-center">
                       <svg className="absolute inset-0 h-full w-full -rotate-90">
@@ -528,20 +557,20 @@ export default function Dashboard({ profile }: DashboardProps) {
                         />
                       </svg>
                       <div className="text-center z-10 flex flex-col items-center">
-                        <p className={`text-6xl font-bold ${isOverGoal ? 'text-[#E57373]' : 'text-[#2D2D2A]'}`}>
+                        <p className={`text-6xl font-bold ${isOverGoal ? 'text-[#E57373]' : 'text-[#2D2D2A] dark:text-[#F8F7F2]'}`}>
                           {Math.max(0, remainingCals).toLocaleString()}
                         </p>
                         <p className="text-xs font-black uppercase tracking-[0.2em] text-[#8E8D8A] mt-1 mb-2">Kcal Left</p>
-                        <p className="text-[10px] font-bold text-[#8E8D8A] bg-[#F1F3EE] px-3 py-1 rounded-full uppercase tracking-wider">{netCalories} / {userGoal.calories} kcal</p>
+                        <p className="text-[10px] font-bold text-[#8E8D8A] bg-[#F1F3EE] dark:bg-[#3D3D3A] px-3 py-1 rounded-full uppercase tracking-wider">{netCalories} / {userGoal.calories} kcal</p>
                       </div>
                     </div>
 
                     <div className="flex-1 w-full grid grid-cols-2 gap-4">
-                      <div className="p-6 rounded-[32px] bg-[#F1F3EE] border border-[#E8E6E0]/50">
+                      <div className="p-6 rounded-[32px] bg-[#F1F3EE] dark:bg-[#3D3D3A] border border-[#E8E6E0] dark:border-[#3D3D3A]/50">
                         <p className="text-[10px] font-black uppercase tracking-widest text-[#8E8D8A] mb-1">Eaten</p>
-                        <p className="text-2xl font-bold text-[#2D2D2A]">{mealStats.calories}</p>
+                        <p className="text-2xl font-bold text-[#2D2D2A] dark:text-[#F8F7F2]">{mealStats.calories}</p>
                       </div>
-                      <div className="p-6 rounded-[32px] bg-[#F1F3EE] border border-[#E8E6E0]/50 relative">
+                      <div className="p-6 rounded-[32px] bg-[#F1F3EE] dark:bg-[#3D3D3A] border border-[#E8E6E0] dark:border-[#3D3D3A]/50 relative">
                         <div className="flex justify-between items-center mb-1">
                           <p className="text-[10px] font-black uppercase tracking-widest text-[#8E8D8A]">Burned</p>
                           {isHealthSynced && (
@@ -558,7 +587,7 @@ export default function Dashboard({ profile }: DashboardProps) {
                       <div className="col-span-2 p-8 lg:p-10 rounded-[40px] bg-[#2D2D2A] text-white overflow-hidden shadow-2xl">
                         <div className="flex justify-between items-center mb-6">
                           <p className="text-xs font-black uppercase tracking-[0.2em] opacity-60">Daily Macros</p>
-                          <button onClick={() => setShowGoalEditor(true)} className="text-[10px] font-bold uppercase tracking-wider bg-white/10 px-3 py-1.5 rounded-full hover:bg-white/20 transition-colors cursor-pointer flex items-center gap-1">
+                          <button onClick={() => setShowGoalEditor(true)} className="text-[10px] font-bold uppercase tracking-wider bg-white dark:bg-[#2D2D2A]/10 px-3 py-1.5 rounded-full hover:bg-white dark:bg-[#2D2D2A]/20 transition-colors cursor-pointer flex items-center gap-1">
                             <Target className="h-3 w-3" /> Edit Goal
                           </button>
                         </div>
@@ -569,7 +598,7 @@ export default function Dashboard({ profile }: DashboardProps) {
                               <span className="text-[#E57373]">Protein</span>
                               <span>{mealStats.protein}g / {userGoal.macros.protein}g</span>
                             </div>
-                            <div className="h-3 w-full rounded-full bg-white/10 overflow-hidden">
+                            <div className="h-3 w-full rounded-full bg-white dark:bg-[#2D2D2A]/10 overflow-hidden">
                               <motion.div 
                                 initial={{ width: 0 }}
                                 animate={{ width: `${Math.min((mealStats.protein / userGoal.macros.protein) * 100, 100)}%` }}
@@ -583,7 +612,7 @@ export default function Dashboard({ profile }: DashboardProps) {
                               <span className="text-[#81C784]">Carbs</span>
                               <span>{mealStats.carbs}g / {userGoal.macros.carbs}g</span>
                             </div>
-                            <div className="h-3 w-full rounded-full bg-white/10 overflow-hidden">
+                            <div className="h-3 w-full rounded-full bg-white dark:bg-[#2D2D2A]/10 overflow-hidden">
                               <motion.div 
                                 initial={{ width: 0 }}
                                 animate={{ width: `${Math.min((mealStats.carbs / userGoal.macros.carbs) * 100, 100)}%` }}
@@ -597,7 +626,7 @@ export default function Dashboard({ profile }: DashboardProps) {
                               <span className="text-[#FFB74D]">Fats</span>
                               <span>{mealStats.fats}g / {userGoal.macros.fats}g</span>
                             </div>
-                            <div className="h-3 w-full rounded-full bg-white/10 overflow-hidden">
+                            <div className="h-3 w-full rounded-full bg-white dark:bg-[#2D2D2A]/10 overflow-hidden">
                               <motion.div 
                                 initial={{ width: 0 }}
                                 animate={{ width: `${Math.min((mealStats.fats / userGoal.macros.fats) * 100, 100)}%` }}
@@ -622,7 +651,7 @@ export default function Dashboard({ profile }: DashboardProps) {
                       </Button>
                       <Button 
                         variant="outline"
-                        className="h-14 rounded-2xl border-[#E8E6E0] font-bold flex gap-3 hover:bg-[#F1F3EE]"
+                        className="h-14 rounded-2xl border-[#E8E6E0] dark:border-[#3D3D3A] font-bold flex gap-3 hover:bg-[#F1F3EE] dark:bg-[#3D3D3A]"
                         onClick={() => setShowWorkoutLogger(true)}
                       >
                         <Dumbbell className="h-5 w-5 text-[#5A6E4B]" />
@@ -635,10 +664,10 @@ export default function Dashboard({ profile }: DashboardProps) {
                 {/* Burn Breakdown Section */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <Card 
-                    className={`rounded-[32px] border-[#E8E6E0] bg-white p-6 shadow-sm flex items-center gap-4 transition-colors ${!isPastDay && !isHealthSynced ? 'cursor-pointer hover:border-[#5A6E4B]' : (isHealthSynced ? 'border-[#5A6E4B] ring-1 ring-[#5A6E4B]/20' : 'opacity-80')}`}
+                    className={`rounded-[32px] border-[#E8E6E0] dark:border-[#3D3D3A] bg-white dark:bg-[#2D2D2A] p-6 shadow-sm flex items-center gap-4 transition-colors ${!isPastDay && !isHealthSynced ? 'cursor-pointer hover:border-[#5A6E4B]' : (isHealthSynced ? 'border-[#5A6E4B] ring-1 ring-[#5A6E4B]/20' : 'opacity-80')}`}
                     onClick={() => !isPastDay && !isHealthSynced && setShowStepTracker(true)}
                   >
-                    <div className={`h-14 w-14 rounded-2xl flex items-center justify-center ${isHealthSynced ? 'bg-[#5A6E4B] text-white' : 'bg-[#F1F3EE] text-[#5A6E4B]'}`}>
+                    <div className={`h-14 w-14 rounded-2xl flex items-center justify-center ${isHealthSynced ? 'bg-[#5A6E4B] text-white' : 'bg-[#F1F3EE] dark:bg-[#3D3D3A] text-[#5A6E4B]'}`}>
                       {isHealthSynced ? <HeartPulse className="h-7 w-7" /> : <Footprints className="h-7 w-7" />}
                     </div>
                     <div className="flex-1">
@@ -677,8 +706,8 @@ export default function Dashboard({ profile }: DashboardProps) {
                     </div>
                   </Card>
 
-                  <Card className="rounded-[32px] border-[#E8E6E0] bg-white p-6 shadow-sm flex items-center gap-4">
-                    <div className="h-14 w-14 rounded-2xl bg-[#F1F3EE] flex items-center justify-center">
+                  <Card className="rounded-[32px] border-[#E8E6E0] dark:border-[#3D3D3A] bg-white dark:bg-[#2D2D2A] p-6 shadow-sm flex items-center gap-4">
+                    <div className="h-14 w-14 rounded-2xl bg-[#F1F3EE] dark:bg-[#3D3D3A] flex items-center justify-center">
                       <History className="h-7 w-7 text-[#5A6E4B]" />
                     </div>
                     <div className="flex-1">
@@ -703,7 +732,7 @@ export default function Dashboard({ profile }: DashboardProps) {
               <div className="space-y-8">
                 {/* Workout History Selected Date */}
                 {workouts.length > 0 && (
-                  <Card className="rounded-[32px] border-[#E8E6E0] bg-white p-8 shadow-sm">
+                  <Card className="rounded-[32px] border-[#E8E6E0] dark:border-[#3D3D3A] bg-white dark:bg-[#2D2D2A] p-8 shadow-sm">
                     <h3 className="text-xl font-bold mb-6 flex items-center justify-between">
                       Workout History
                       <Dumbbell className="h-5 w-5 text-[#8E8D8A]" />
@@ -712,8 +741,8 @@ export default function Dashboard({ profile }: DashboardProps) {
                       {workouts.map((w) => (
                         <div key={w.id}>
                           <SwipeToDeleteItem isReadOnly={isPastDay} onDelete={() => deleteWorkout(w.id)}>
-                            <div className="flex items-center gap-4 p-4 rounded-2xl bg-[#F8F7F2] border border-[#E8E6E0]/50">
-                              <div className="h-10 w-10 rounded-xl bg-white flex items-center justify-center shrink-0">
+                            <div className="flex items-center gap-4 p-4 rounded-2xl bg-[#F8F7F2] dark:bg-[#1a1a18] border border-[#E8E6E0] dark:border-[#3D3D3A]/50">
+                              <div className="h-10 w-10 rounded-xl bg-white dark:bg-[#2D2D2A] flex items-center justify-center shrink-0">
                                 <Dumbbell className="h-5 w-5 text-[#5A6E4B]" />
                               </div>
                               <div className="flex-1 min-w-0">
@@ -730,7 +759,7 @@ export default function Dashboard({ profile }: DashboardProps) {
                 )}
 
                 {/* Meal History */}
-                <Card className="rounded-[32px] border-[#E8E6E0] bg-white p-8 shadow-sm">
+                <Card className="rounded-[32px] border-[#E8E6E0] dark:border-[#3D3D3A] bg-white dark:bg-[#2D2D2A] p-8 shadow-sm">
                   <h3 className="text-xl font-bold mb-6 flex items-center justify-between">
                     Food Log
                     <Utensils className="h-5 w-5 text-[#8E8D8A]" />
@@ -747,8 +776,8 @@ export default function Dashboard({ profile }: DashboardProps) {
                         return (
                         <div key={meal.id}>
                           <SwipeToDeleteItem isReadOnly={isPastDay} onDelete={() => deleteMeal(meal.id)}>
-                            <div className="flex items-center gap-4 group cursor-pointer bg-white" onClick={() => setSelectedMeal(meal)}>
-                               <div className="h-[60px] w-[60px] rounded-2xl bg-[#F1F3EE] flex items-center justify-center shrink-0 overflow-hidden relative border border-[#E8E6E0]/50">
+                            <div className="flex items-center gap-4 group cursor-pointer bg-white dark:bg-[#2D2D2A]" onClick={() => setSelectedMeal(meal)}>
+                               <div className="h-[60px] w-[60px] rounded-2xl bg-[#F1F3EE] dark:bg-[#3D3D3A] flex items-center justify-center shrink-0 overflow-hidden relative border border-[#E8E6E0] dark:border-[#3D3D3A]/50">
                                 {meal.imageUrl ? (
                                   <img src={meal.imageUrl} className="h-full w-full object-cover" referrerPolicy="no-referrer" />
                                 ) : (
@@ -807,7 +836,7 @@ export default function Dashboard({ profile }: DashboardProps) {
                    <div key={m.id}>
                      <SwipeToDeleteItem isReadOnly={isPastDay} onDelete={() => deleteMeal(m.id)}>
                        <Card className="p-4 rounded-2xl flex gap-4 items-center cursor-pointer hover:border-[#5A6E4B] transition-colors" onClick={() => setSelectedMeal(m)}>
-                         <div className="h-12 w-12 rounded-xl bg-[#F1F3EE] flex items-center justify-center">
+                         <div className="h-12 w-12 rounded-xl bg-[#F1F3EE] dark:bg-[#3D3D3A] flex items-center justify-center">
                            <Utensils className="h-5 w-5 text-[#5A6E4B]" />
                          </div>
                          <div>
@@ -835,7 +864,7 @@ export default function Dashboard({ profile }: DashboardProps) {
                    <div key={w.id}>
                      <SwipeToDeleteItem isReadOnly={isPastDay} onDelete={() => deleteWorkout(w.id)}>
                        <Card className="p-4 rounded-2xl flex gap-4 items-center">
-                         <div className="h-12 w-12 rounded-xl bg-[#F1F3EE] flex items-center justify-center">
+                         <div className="h-12 w-12 rounded-xl bg-[#F1F3EE] dark:bg-[#3D3D3A] flex items-center justify-center">
                            <Dumbbell className="h-5 w-5 text-[#5A6E4B]" />
                          </div>
                          <div>
@@ -854,7 +883,7 @@ export default function Dashboard({ profile }: DashboardProps) {
       </main>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[#E8E6E0] px-4 py-4 flex justify-between items-center z-40 transform translate-z-0">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-[#2D2D2A] border-t border-[#E8E6E0] dark:border-[#3D3D3A] px-4 py-4 flex justify-between items-center z-40 transform translate-z-0">
         <Button variant="ghost" className="flex flex-col gap-1 items-center h-auto py-1 text-[#5A6E4B] min-w-[70px]">
           <TrendingUp className="h-6 w-6" />
           <span className="text-[9px] font-bold uppercase tracking-tight">Dashboard</span>
@@ -889,7 +918,7 @@ export default function Dashboard({ profile }: DashboardProps) {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed top-0 right-0 bottom-0 w-80 bg-white z-51 lg:hidden p-8 flex flex-col"
+              className="fixed top-0 right-0 bottom-0 w-80 bg-white dark:bg-[#2D2D2A] z-51 lg:hidden p-8 flex flex-col"
             >
               <div className="flex justify-between items-center mb-12">
                 <div className="flex items-center gap-2 text-xl font-serif font-bold text-[#5A6E4B]">
@@ -906,7 +935,7 @@ export default function Dashboard({ profile }: DashboardProps) {
                 <div 
                   onClick={() => { setActiveView('dashboard'); setIsMobileMenuOpen(false); }}
                   className={`flex items-center justify-between p-4 rounded-2xl transition-all cursor-pointer ${
-                    activeView === 'dashboard' ? 'bg-[#F8F7F2] text-[#5A6E4B] font-bold' : 'text-[#8E8D8A] hover:bg-[#F8F7F2]'
+                    activeView === 'dashboard' ? 'bg-[#F8F7F2] dark:bg-[#1a1a18] text-[#5A6E4B] font-bold' : 'text-[#8E8D8A] hover:bg-[#F8F7F2] dark:bg-[#1a1a18]'
                   }`}
                 >
                   <div className="flex items-center gap-3">
@@ -918,7 +947,7 @@ export default function Dashboard({ profile }: DashboardProps) {
                 <div 
                   onClick={() => { setActiveView('meals'); setIsMobileMenuOpen(false); }}
                   className={`flex items-center justify-between p-4 rounded-2xl transition-all cursor-pointer ${
-                    activeView === 'meals' ? 'bg-[#F8F7F2] text-[#5A6E4B] font-bold' : 'text-[#8E8D8A] hover:bg-[#F8F7F2]'
+                    activeView === 'meals' ? 'bg-[#F8F7F2] dark:bg-[#1a1a18] text-[#5A6E4B] font-bold' : 'text-[#8E8D8A] hover:bg-[#F8F7F2] dark:bg-[#1a1a18]'
                   }`}
                 >
                   <div className="flex items-center gap-3">
@@ -930,7 +959,7 @@ export default function Dashboard({ profile }: DashboardProps) {
                 <div 
                   onClick={() => { setActiveView('activities'); setIsMobileMenuOpen(false); }}
                   className={`flex items-center justify-between p-4 rounded-2xl transition-all cursor-pointer ${
-                    activeView === 'activities' ? 'bg-[#F8F7F2] text-[#5A6E4B] font-bold' : 'text-[#8E8D8A] hover:bg-[#F8F7F2]'
+                    activeView === 'activities' ? 'bg-[#F8F7F2] dark:bg-[#1a1a18] text-[#5A6E4B] font-bold' : 'text-[#8E8D8A] hover:bg-[#F8F7F2] dark:bg-[#1a1a18]'
                   }`}
                 >
                   <div className="flex items-center gap-3">
@@ -941,7 +970,7 @@ export default function Dashboard({ profile }: DashboardProps) {
                 </div>
               </div>
 
-              <div className="mt-auto pt-8 border-t border-[#E8E6E0]">
+              <div className="mt-auto pt-8 border-t border-[#E8E6E0] dark:border-[#3D3D3A]">
                 <div className="flex items-center gap-4 mb-4">
                   <div className="h-12 w-12 rounded-full bg-[#DCD9D1]" />
                   <div>
@@ -951,7 +980,7 @@ export default function Dashboard({ profile }: DashboardProps) {
                 </div>
                 <Button 
                   variant="ghost"
-                  className="w-full justify-start h-14 rounded-2xl text-[#8E8D8A] hover:bg-[#F8F7F2] font-bold gap-3 mb-2"
+                  className="w-full justify-start h-14 rounded-2xl text-[#8E8D8A] hover:bg-[#F8F7F2] dark:bg-[#1a1a18] font-bold gap-3 mb-2"
                   onClick={() => { setShowGoalEditor(true); setIsMobileMenuOpen(false); }}
                 >
                   <Target className="h-5 w-5" />
@@ -959,7 +988,7 @@ export default function Dashboard({ profile }: DashboardProps) {
                 </Button>
                 <Button 
                   variant="ghost"
-                  className="w-full justify-start h-14 rounded-2xl text-[#8E8D8A] hover:bg-[#F8F7F2] font-bold gap-3 mb-4"
+                  className="w-full justify-start h-14 rounded-2xl text-[#8E8D8A] hover:bg-[#F8F7F2] dark:bg-[#1a1a18] font-bold gap-3 mb-4"
                   onClick={() => { setShowHealthSync(true); setIsMobileMenuOpen(false); }}
                 >
                   <HeartPulse className="h-5 w-5" />

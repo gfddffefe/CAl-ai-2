@@ -44,15 +44,23 @@ export default function MealLogger({ userId, onClose, onLogged }: MealLoggerProp
     setScanningBarcode(true);
     setError(null);
     try {
-      readerRef.current = new BrowserMultiFormatReader();
-      const videoInputDevices = await readerRef.current.listVideoInputDevices();
-      const selectedDeviceId = videoInputDevices[0]?.deviceId;
+      const codeReader = new BrowserMultiFormatReader();
+      readerRef.current = codeReader;
+      let videoInputDevices;
+      try {
+        videoInputDevices = await BrowserMultiFormatReader.listVideoInputDevices();
+      } catch (err) {
+        // Fallback for older zxing library if the static method throws
+        videoInputDevices = await codeReader.listVideoInputDevices();
+      }
       
-      if (!selectedDeviceId) {
+      if (!videoInputDevices || videoInputDevices.length === 0) {
         throw new Error('No camera found');
       }
+      const selectedDeviceId = videoInputDevices[0].deviceId;
 
-      readerRef.current.decodeFromVideoDevice(selectedDeviceId, videoRef.current, async (result, err) => {
+      // Note: we can pass videoRef.current instead of string id
+      await codeReader.decodeFromVideoDevice(selectedDeviceId, videoRef.current as any, async (result, err) => {
         if (result) {
           stopBarcodeScanner();
           await fetchBarcodeProduct(result.getText());
@@ -62,8 +70,9 @@ export default function MealLogger({ userId, onClose, onLogged }: MealLoggerProp
         }
       });
     } catch (err: any) {
-      console.error(err);
-      setError(err.message || 'Failed to start camera');
+      console.error('Scanner error:', err);
+      // alert('Could not open camera for scanning'); // Using state error instead
+      setError(err.message || 'Could not open camera for scanning');
       setScanningBarcode(false);
     }
   };
@@ -332,10 +341,10 @@ ONLY return the JSON object, nothing else.`;
         exit={{ y: '100%' }}
         className="w-full max-w-md"
       >
-        <Card className="rounded-t-[32px] sm:rounded-[32px] border-[#E8E6E0] bg-white shadow-2xl overflow-hidden p-0">
+        <Card className="rounded-t-[32px] sm:rounded-[32px] border-[#E8E6E0] dark:border-[#3D3D3A] bg-white dark:bg-[#2D2D2A] shadow-2xl overflow-hidden p-0">
           <CardHeader className="flex flex-row items-center justify-between p-8 pb-4">
-            <CardTitle className="text-2xl font-serif font-bold text-[#2D2D2A]">Log Meal</CardTitle>
-            <Button variant="ghost" size="icon" onClick={() => { stopBarcodeScanner(); onClose(); }} className="rounded-full hover:bg-[#F1F3EE]">
+            <CardTitle className="text-2xl font-serif font-bold text-[#2D2D2A] dark:text-[#F8F7F2]">Log Meal</CardTitle>
+            <Button variant="ghost" size="icon" onClick={() => { stopBarcodeScanner(); onClose(); }} className="rounded-full hover:bg-[#F1F3EE] dark:bg-[#3D3D3A]">
               <X className="h-6 w-6 text-[#8E8D8A]" />
             </Button>
           </CardHeader>
@@ -359,7 +368,7 @@ ONLY return the JSON object, nothing else.`;
                 <div
                   {...getRootProps()}
                   className={`flex aspect-square cursor-pointer flex-col items-center justify-center rounded-[32px] border-2 border-dashed transition-all duration-300 ${
-                    isDragActive ? 'border-[#5A6E4B] bg-[#F1F3EE]' : 'border-[#E8E6E0] bg-[#F8F7F2] hover:border-[#5A6E4B] hover:bg-[#F1F3EE]'
+                    isDragActive ? 'border-[#5A6E4B] bg-[#F1F3EE] dark:bg-[#3D3D3A]' : 'border-[#E8E6E0] dark:border-[#3D3D3A] bg-[#F8F7F2] dark:bg-[#1a1a18] hover:border-[#5A6E4B] hover:bg-[#F1F3EE] dark:bg-[#3D3D3A]'
                   }`}
                 >
                   <input {...(getInputProps({ capture: 'environment' } as any))} />
@@ -370,10 +379,10 @@ ONLY return the JSON object, nothing else.`;
                     </div>
                   ) : (
                     <>
-                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm ring-1 ring-[#E8E6E0] mb-4">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white dark:bg-[#2D2D2A] shadow-sm ring-1 ring-[#E8E6E0] mb-4">
                         <Camera className="h-7 w-7 text-[#5A6E4B]" />
                       </div>
-                      <p className="font-bold text-[#2D2D2A]">Snap</p>
+                      <p className="font-bold text-[#2D2D2A] dark:text-[#F8F7F2]">Snap</p>
                       <p className="text-[10px] text-[#8E8D8A] mt-1">Photo</p>
                     </>
                   )}
@@ -381,19 +390,19 @@ ONLY return the JSON object, nothing else.`;
 
                 <div
                   onClick={startBarcodeScanner}
-                  className="flex aspect-square cursor-pointer flex-col items-center justify-center rounded-[32px] border-2 border-dashed border-[#E8E6E0] bg-[#F8F7F2] hover:border-[#5A6E4B] hover:bg-[#F1F3EE] transition-all duration-300"
+                  className="flex aspect-square cursor-pointer flex-col items-center justify-center rounded-[32px] border-2 border-dashed border-[#E8E6E0] dark:border-[#3D3D3A] bg-[#F8F7F2] dark:bg-[#1a1a18] hover:border-[#5A6E4B] hover:bg-[#F1F3EE] dark:bg-[#3D3D3A] transition-all duration-300"
                 >
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-sm ring-1 ring-[#E8E6E0] mb-4">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white dark:bg-[#2D2D2A] shadow-sm ring-1 ring-[#E8E6E0] mb-4">
                     <Barcode className="h-7 w-7 text-[#5A6E4B]" />
                   </div>
-                  <p className="font-bold text-[#2D2D2A]">Scan</p>
+                  <p className="font-bold text-[#2D2D2A] dark:text-[#F8F7F2]">Scan</p>
                   <p className="text-[10px] text-[#8E8D8A] mt-1">Barcode</p>
                 </div>
               </div>
             ) : (
               <div className="space-y-8">
                 {preview === 'barcode' ? (
-                   <div className="flex items-center justify-center h-32 bg-[#F8F7F2] rounded-[32px] border border-[#E8E6E0]">
+                   <div className="flex items-center justify-center h-32 bg-[#F8F7F2] dark:bg-[#1a1a18] rounded-[32px] border border-[#E8E6E0] dark:border-[#3D3D3A]">
                      <Barcode className="h-10 w-10 text-[#8E8D8A]" />
                      <span className="ml-3 font-bold text-[#8E8D8A]">Barcode Scanned</span>
                      <Button
@@ -406,7 +415,7 @@ ONLY return the JSON object, nothing else.`;
                      </Button>
                    </div>
                 ) : (
-                  <div className="relative w-full aspect-square min-h-[250px] overflow-hidden rounded-[32px] group ring-1 ring-[#E8E6E0] bg-[#F8F7F2]">
+                  <div className="relative w-full aspect-square min-h-[250px] overflow-hidden rounded-[32px] group ring-1 ring-[#E8E6E0] bg-[#F8F7F2] dark:bg-[#1a1a18]">
                     <img 
                       id="image-preview"
                       src={preview} 
@@ -436,21 +445,21 @@ ONLY return the JSON object, nothing else.`;
                       <Loader2 className="h-16 w-16 animate-spin text-[#5A6E4B] stroke-[3]" />
                     </div>
                     <div className="text-center">
-                      <p className="text-xl font-bold text-[#2D2D2A]">Analyzing...</p>
+                      <p className="text-xl font-bold text-[#2D2D2A] dark:text-[#F8F7F2]">Analyzing...</p>
                       <p className="text-sm text-[#8E8D8A]">Retrieving nutrition</p>
                     </div>
                   </div>
                 ) : result ? (
                   <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="space-y-6 max-h-[50vh] overflow-y-auto pr-2">
-                    <div className="rounded-[24px] bg-[#F8F7F2] p-6 border border-[#E8E6E0]">
-                      <h4 className="text-xl font-serif font-bold mb-4 flex items-center justify-between text-[#2D2D2A]">
+                    <div className="rounded-[24px] bg-[#F8F7F2] dark:bg-[#1a1a18] p-6 border border-[#E8E6E0] dark:border-[#3D3D3A]">
+                      <h4 className="text-xl font-serif font-bold mb-4 flex items-center justify-between text-[#2D2D2A] dark:text-[#F8F7F2]">
                         {result.name}
                       </h4>
                       
                       {/* Servings Control */}
-                      <div className="flex items-center justify-between border-b border-[#E8E6E0] pb-4 mb-4">
+                      <div className="flex items-center justify-between border-b border-[#E8E6E0] dark:border-[#3D3D3A] pb-4 mb-4">
                         <span className="font-bold text-[#8E8D8A] text-sm uppercase tracking-widest">Servings</span>
-                        <div className="flex items-center gap-4 bg-white rounded-xl ring-1 ring-[#E8E6E0] p-1">
+                        <div className="flex items-center gap-4 bg-white dark:bg-[#2D2D2A] rounded-xl ring-1 ring-[#E8E6E0] p-1">
                           <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => setServings(Math.max(1, servings - 1))}>-</Button>
                           <span className="text-lg font-bold w-6 text-center">{servings}</span>
                           <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => setServings(servings + 1)}>+</Button>
@@ -460,20 +469,20 @@ ONLY return the JSON object, nothing else.`;
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
                           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#8E8D8A]">Calories</p>
-                          <p className="text-3xl font-bold text-[#2D2D2A]">{result.calories * servings} <span className="text-xs font-normal text-[#8E8D8A]">kcal</span></p>
+                          <p className="text-3xl font-bold text-[#2D2D2A] dark:text-[#F8F7F2]">{result.calories * servings} <span className="text-xs font-normal text-[#8E8D8A]">kcal</span></p>
                         </div>
                         <div className="grid gap-2">
-                          <div className="flex justify-between items-center text-xs border-b border-[#E8E6E0] pb-1">
+                          <div className="flex justify-between items-center text-xs border-b border-[#E8E6E0] dark:border-[#3D3D3A] pb-1">
                             <span className="text-[#8E8D8A] font-medium">Protein</span>
-                            <span className="font-bold text-[#2D2D2A]">{result.protein * servings}g</span>
+                            <span className="font-bold text-[#2D2D2A] dark:text-[#F8F7F2]">{result.protein * servings}g</span>
                           </div>
-                          <div className="flex justify-between items-center text-xs border-b border-[#E8E6E0] pb-1">
+                          <div className="flex justify-between items-center text-xs border-b border-[#E8E6E0] dark:border-[#3D3D3A] pb-1">
                             <span className="text-[#8E8D8A] font-medium">Carbs</span>
-                            <span className="font-bold text-[#2D2D2A]">{result.carbs * servings}g</span>
+                            <span className="font-bold text-[#2D2D2A] dark:text-[#F8F7F2]">{result.carbs * servings}g</span>
                           </div>
                           <div className="flex justify-between items-center text-xs">
                             <span className="text-[#8E8D8A] font-medium">Fats</span>
-                            <span className="font-bold text-[#2D2D2A]">{result.fats * servings}g</span>
+                            <span className="font-bold text-[#2D2D2A] dark:text-[#F8F7F2]">{result.fats * servings}g</span>
                           </div>
                         </div>
                       </div>

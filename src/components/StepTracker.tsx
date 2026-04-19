@@ -89,15 +89,15 @@ export default function StepTracker({ profile, onClose, onLogged }: StepTrackerP
         exit={{ y: '100%' }}
         className="w-full max-w-sm"
       >
-        <Card className="rounded-t-[32px] sm:rounded-[32px] border-[#E8E6E0] bg-white shadow-2xl overflow-hidden p-0">
+        <Card className="rounded-t-[32px] sm:rounded-[32px] border-[#E8E6E0] dark:border-[#3D3D3A] bg-white dark:bg-[#2D2D2A] shadow-2xl overflow-hidden p-0">
           <CardHeader className="flex flex-row items-center justify-between p-8 pb-4">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-xl bg-[#5A6E4B]/10 flex items-center justify-center">
                 <Footprints className="h-6 w-6 text-[#5A6E4B]" />
               </div>
-              <CardTitle className="text-2xl font-serif font-bold text-[#2D2D2A]">Track Steps</CardTitle>
+              <CardTitle className="text-2xl font-serif font-bold text-[#2D2D2A] dark:text-[#F8F7F2]">Track Steps</CardTitle>
             </div>
-            <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full hover:bg-[#F1F3EE]">
+            <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full hover:bg-[#F1F3EE] dark:bg-[#3D3D3A]">
               <X className="h-6 w-6 text-[#8E8D8A]" />
             </Button>
           </CardHeader>
@@ -109,7 +109,7 @@ export default function StepTracker({ profile, onClose, onLogged }: StepTrackerP
                 placeholder="e.g. 10000"
                 value={steps}
                 onChange={(e) => setSteps(e.target.value)}
-                className="h-14 text-2xl font-bold rounded-2xl border-[#E8E6E0] bg-[#F8F7F2] text-center"
+                className="h-14 text-2xl font-bold rounded-2xl border-[#E8E6E0] dark:border-[#3D3D3A] bg-[#F8F7F2] dark:bg-[#1a1a18] text-center"
                 autoFocus
               />
               <p className="text-center text-xs text-[#8E8D8A]">

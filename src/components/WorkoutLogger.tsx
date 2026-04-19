@@ -144,15 +144,15 @@ Rules:
         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
         className="w-full max-w-md h-[95vh] sm:h-auto overflow-hidden flex flex-col"
       >
-        <Card className="rounded-t-[32px] sm:rounded-[32px] border-[#E8E6E0] bg-white shadow-2xl flex flex-col h-full overflow-hidden p-0">
+        <Card className="rounded-t-[32px] sm:rounded-[32px] border-[#E8E6E0] dark:border-[#3D3D3A] bg-white dark:bg-[#2D2D2A] shadow-2xl flex flex-col h-full overflow-hidden p-0">
           <CardHeader className="flex flex-row items-center justify-between p-6 pb-2 shrink-0 border-b border-[#F1F3EE]">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-xl bg-[#5A6E4B]/10 flex items-center justify-center">
                 <Dumbbell className="h-6 w-6 text-[#5A6E4B]" />
               </div>
-              <CardTitle className="text-2xl font-serif font-bold text-[#2D2D2A]">Log Workout</CardTitle>
+              <CardTitle className="text-2xl font-serif font-bold text-[#2D2D2A] dark:text-[#F8F7F2]">Log Workout</CardTitle>
             </div>
-            <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full hover:bg-[#F1F3EE]">
+            <Button variant="ghost" size="icon" onClick={onClose} className="rounded-full hover:bg-[#F1F3EE] dark:bg-[#3D3D3A]">
               <X className="h-6 w-6 text-[#8E8D8A]" />
             </Button>
           </CardHeader>
@@ -170,7 +170,7 @@ Rules:
                     className={`snap-start whitespace-nowrap px-4 py-2.5 rounded-xl font-bold transition-all flex-shrink-0 ${
                       activeCategory === cat.name 
                         ? 'bg-[#2D2D2A] text-white shadow-md scale-100' 
-                        : 'bg-[#F8F7F2] text-[#8E8D8A] hover:bg-[#F1F3EE] scale-95'
+                        : 'bg-[#F8F7F2] dark:bg-[#1a1a18] text-[#8E8D8A] hover:bg-[#F1F3EE] dark:bg-[#3D3D3A] scale-95'
                     }`}
                   >
                     {cat.name}
@@ -201,7 +201,7 @@ Rules:
                       className={`text-sm py-3 px-3 rounded-xl border text-left transition-all ${
                         selectedActivity === activity
                           ? 'border-[#5A6E4B] bg-[#5A6E4B]/5 text-[#5A6E4B] font-bold shadow-sm'
-                          : 'border-[#E8E6E0] bg-white text-[#2D2D2A] hover:border-[#2D2D2A]/30'
+                          : 'border-[#E8E6E0] dark:border-[#3D3D3A] bg-white dark:bg-[#2D2D2A] text-[#2D2D2A] dark:text-[#F8F7F2] hover:border-[#2D2D2A]/30'
                       }`}
                     >
                       {activity}
@@ -218,7 +218,7 @@ Rules:
                   type="number"
                   value={duration}
                   onChange={(e) => setDuration(e.target.value)}
-                  className="h-12 rounded-xl text-lg font-bold border-[#E8E6E0] bg-[#F8F7F2]"
+                  className="h-12 rounded-xl text-lg font-bold border-[#E8E6E0] dark:border-[#3D3D3A] bg-[#F8F7F2] dark:bg-[#1a1a18]"
                 />
               </div>
               <div className="space-y-2">
@@ -227,22 +227,22 @@ Rules:
                   type="number"
                   value={weight}
                   onChange={(e) => setWeight(e.target.value)}
-                  className="h-12 rounded-xl text-lg font-bold border-[#E8E6E0] bg-[#F8F7F2]"
+                  className="h-12 rounded-xl text-lg font-bold border-[#E8E6E0] dark:border-[#3D3D3A] bg-[#F8F7F2] dark:bg-[#1a1a18]"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
               <Label className="text-xs font-bold uppercase tracking-wider text-[#8E8D8A]">Intensity</Label>
-              <div className="flex bg-[#F8F7F2] p-1 rounded-2xl">
+              <div className="flex bg-[#F8F7F2] dark:bg-[#1a1a18] p-1 rounded-2xl">
                 {(['light', 'moderate', 'intense'] as WorkoutIntensity[]).map((i) => (
                   <button
                     key={i}
                     onClick={() => setIntensity(i)}
                     className={`flex-1 capitalize py-3 rounded-xl text-sm font-bold transition-all ${
                       intensity === i 
-                        ? 'bg-white text-[#5A6E4B] shadow-sm' 
-                        : 'text-[#8E8D8A] hover:text-[#2D2D2A]'
+                        ? 'bg-white dark:bg-[#2D2D2A] text-[#5A6E4B] shadow-sm' 
+                        : 'text-[#8E8D8A] hover:text-[#2D2D2A] dark:text-[#F8F7F2]'
                     }`}
                   >
                     {i}

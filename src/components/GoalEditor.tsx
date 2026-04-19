@@ -150,19 +150,19 @@ export default function GoalEditor({ profile, onClose, onSave }: GoalEditorProps
 
   return (
     <div className="fixed inset-0 bg-[#2D2D2A]/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-[40px] p-8 max-w-lg w-full shadow-2xl overflow-y-auto max-h-[90vh] pb-10">
+      <div className="bg-white dark:bg-[#2D2D2A] rounded-[40px] p-8 max-w-lg w-full shadow-2xl overflow-y-auto max-h-[90vh] pb-10">
         <div className="flex justify-between items-center mb-8">
-          <div className="flex items-center gap-3 text-2xl font-serif font-bold text-[#2D2D2A]">
+          <div className="flex items-center gap-3 text-2xl font-serif font-bold text-[#2D2D2A] dark:text-[#F8F7F2]">
             <Target className="h-6 w-6 text-[#5A6E4B]" />
             <h3>My Goal</h3>
           </div>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-[#F1F3EE] transition-colors">
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-[#F1F3EE] dark:bg-[#3D3D3A] transition-colors">
             <X className="h-5 w-5 text-[#8E8D8A]" />
           </button>
         </div>
 
         <div className="space-y-6">
-          <div className="p-6 rounded-3xl bg-[#F8F7F2] border border-[#E8E6E0] space-y-4">
+          <div className="p-6 rounded-3xl bg-[#F8F7F2] dark:bg-[#1a1a18] border border-[#E8E6E0] dark:border-[#3D3D3A] space-y-4">
             <Label className="text-sm font-bold uppercase tracking-wider text-[#8E8D8A]">Daily Calorie Goal</Label>
             <div className="flex items-center gap-2">
               <Input 
@@ -171,14 +171,14 @@ export default function GoalEditor({ profile, onClose, onSave }: GoalEditorProps
                 onChange={(e) => handleChange('calories', e.target.value)}
                 placeholder="2000"
                 min="0"
-                className="text-2xl font-bold bg-white h-14 rounded-2xl w-full"
+                className="text-2xl font-bold bg-white dark:bg-[#2D2D2A] h-14 rounded-2xl w-full"
               />
               <span className="font-bold text-[#8E8D8A] whitespace-nowrap">kcal</span>
               <Button 
                 onClick={() => handleGenerateMacros()}
                 disabled={loading}
                 variant="outline"
-                className="ml-2 h-14 rounded-2xl border-[#E8E6E0] font-bold text-[#5A6E4B] hover:bg-[#F1F3EE] flex gap-2 items-center px-4"
+                className="ml-2 h-14 rounded-2xl border-[#E8E6E0] dark:border-[#3D3D3A] font-bold text-[#5A6E4B] hover:bg-[#F1F3EE] dark:bg-[#3D3D3A] flex gap-2 items-center px-4"
               >
                 <Wand2 className="h-4 w-4" />
                 <span className="hidden sm:inline">Recalculate</span>
@@ -195,7 +195,7 @@ export default function GoalEditor({ profile, onClose, onSave }: GoalEditorProps
                 onChange={(e) => handleChange('weight', e.target.value)}
                 placeholder="70"
                 min="0"
-                className="bg-[#F8F7F2] h-12 rounded-xl"
+                className="bg-[#F8F7F2] dark:bg-[#1a1a18] h-12 rounded-xl"
               />
             </div>
             <div className="space-y-2">
@@ -206,7 +206,7 @@ export default function GoalEditor({ profile, onClose, onSave }: GoalEditorProps
                 onChange={(e) => handleChange('height', e.target.value)}
                 placeholder="170"
                 min="0"
-                className="bg-[#F8F7F2] h-12 rounded-xl"
+                className="bg-[#F8F7F2] dark:bg-[#1a1a18] h-12 rounded-xl"
               />
             </div>
             <div className="space-y-2">
@@ -217,13 +217,13 @@ export default function GoalEditor({ profile, onClose, onSave }: GoalEditorProps
                 onChange={(e) => handleChange('age', e.target.value)}
                 placeholder="30"
                 min="0"
-                className="bg-[#F8F7F2] h-12 rounded-xl"
+                className="bg-[#F8F7F2] dark:bg-[#1a1a18] h-12 rounded-xl"
               />
             </div>
             <div className="space-y-2">
               <Label>Gender</Label>
               <Select value={formData.gender} onValueChange={(val) => handleChange('gender', val)}>
-                <SelectTrigger className="bg-[#F8F7F2] border-0 h-12 rounded-xl">
+                <SelectTrigger className="bg-[#F8F7F2] dark:bg-[#1a1a18] border-0 h-12 rounded-xl">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -239,7 +239,7 @@ export default function GoalEditor({ profile, onClose, onSave }: GoalEditorProps
             <div className="space-y-2">
               <Label>Activity Level</Label>
               <Select value={formData.activityLevel} onValueChange={(val) => handleChange('activityLevel', val)}>
-                <SelectTrigger className="bg-[#F8F7F2] border-0 h-12 rounded-xl">
+                <SelectTrigger className="bg-[#F8F7F2] dark:bg-[#1a1a18] border-0 h-12 rounded-xl">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -255,7 +255,7 @@ export default function GoalEditor({ profile, onClose, onSave }: GoalEditorProps
             <div className="space-y-2">
               <Label>Main Goal</Label>
               <Select value={formData.goal} onValueChange={(val) => handleChange('goal', val)}>
-                <SelectTrigger className="bg-[#F8F7F2] border-0 h-12 rounded-xl">
+                <SelectTrigger className="bg-[#F8F7F2] dark:bg-[#1a1a18] border-0 h-12 rounded-xl">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -279,30 +279,30 @@ export default function GoalEditor({ profile, onClose, onSave }: GoalEditorProps
               
               {loading ? (
                 <div className="grid grid-cols-3 gap-2 mt-4 text-center">
-                  <div className="bg-white/10 p-3 rounded-2xl animate-pulse">
+                  <div className="bg-white dark:bg-[#2D2D2A]/10 p-3 rounded-2xl animate-pulse">
                     <p className="text-[10px] font-black uppercase text-[#E57373]">Protein</p>
                     <Loader2 className="h-4 w-4 animate-spin mx-auto mt-1" />
                   </div>
-                  <div className="bg-white/10 p-3 rounded-2xl animate-pulse">
+                  <div className="bg-white dark:bg-[#2D2D2A]/10 p-3 rounded-2xl animate-pulse">
                     <p className="text-[10px] font-black uppercase text-[#81C784]">Carbs</p>
                     <Loader2 className="h-4 w-4 animate-spin mx-auto mt-1" />
                   </div>
-                  <div className="bg-white/10 p-3 rounded-2xl animate-pulse">
+                  <div className="bg-white dark:bg-[#2D2D2A]/10 p-3 rounded-2xl animate-pulse">
                     <p className="text-[10px] font-black uppercase text-[#FFB74D]">Fats</p>
                     <Loader2 className="h-4 w-4 animate-spin mx-auto mt-1" />
                   </div>
                 </div>
               ) : aiGeneratedMacros ? (
                 <div className="grid grid-cols-3 gap-2 mt-4 text-center">
-                  <div className="bg-white/10 p-3 rounded-2xl">
+                  <div className="bg-white dark:bg-[#2D2D2A]/10 p-3 rounded-2xl">
                     <p className="text-[10px] font-black uppercase text-[#E57373]">Protein</p>
                     <p className="font-bold">{aiGeneratedMacros.protein}g</p>
                   </div>
-                  <div className="bg-white/10 p-3 rounded-2xl">
+                  <div className="bg-white dark:bg-[#2D2D2A]/10 p-3 rounded-2xl">
                     <p className="text-[10px] font-black uppercase text-[#81C784]">Carbs</p>
                     <p className="font-bold">{aiGeneratedMacros.carbs}g</p>
                   </div>
-                  <div className="bg-white/10 p-3 rounded-2xl">
+                  <div className="bg-white dark:bg-[#2D2D2A]/10 p-3 rounded-2xl">
                     <p className="text-[10px] font-black uppercase text-[#FFB74D]">Fats</p>
                     <p className="font-bold">{aiGeneratedMacros.fats}g</p>
                   </div>
@@ -311,13 +311,13 @@ export default function GoalEditor({ profile, onClose, onSave }: GoalEditorProps
                 <Button 
                   onClick={() => handleGenerateMacros()} 
                   disabled={loading}
-                  className="w-full h-12 bg-white text-[#5A6E4B] hover:bg-[#F1F3EE] rounded-xl font-bold mt-2"
+                  className="w-full h-12 bg-white dark:bg-[#2D2D2A] text-[#5A6E4B] hover:bg-[#F1F3EE] dark:bg-[#3D3D3A] rounded-xl font-bold mt-2"
                 >
                   Calculate Macros
                 </Button>
               )}
             </div>
-            <div className="absolute top-0 right-0 -mr-8 -mt-8 h-32 w-32 rounded-full bg-white/5" />
+            <div className="absolute top-0 right-0 -mr-8 -mt-8 h-32 w-32 rounded-full bg-white dark:bg-[#2D2D2A]/5" />
           </div>
 
           <Button 

@@ -128,13 +128,13 @@ export default function MealDetailModal({ userId, meal, onClose, onUpdated }: Me
         exit={{ y: '100%' }}
         className="w-full max-w-lg max-h-[95vh] flex flex-col"
       >
-        <Card className="rounded-[32px] border-[#E8E6E0] bg-[#F8F7F2] shadow-2xl overflow-hidden p-0 flex flex-col flex-1 max-h-[90vh]">
+        <Card className="rounded-[32px] border-[#E8E6E0] dark:border-[#3D3D3A] bg-[#F8F7F2] dark:bg-[#1a1a18] shadow-2xl overflow-hidden p-0 flex flex-col flex-1 max-h-[90vh]">
           {/* Header Image */}
           <div className="relative h-48 sm:h-64 shrink-0 bg-[#E8E6E0] w-full">
             {meal.imageUrl ? (
               <img src={meal.imageUrl} alt={meal.name} className="w-full h-full object-cover" />
             ) : (
-               <div className="w-full h-full flex items-center justify-center bg-white"><Utensils className="h-12 w-12 text-[#E8E6E0]" /></div>
+               <div className="w-full h-full flex items-center justify-center bg-white dark:bg-[#2D2D2A]"><Utensils className="h-12 w-12 text-[#E8E6E0]" /></div>
             )}
             <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/40 to-transparent flex justify-end">
               <Button size="icon" onClick={onClose} className="rounded-full bg-black/40 text-white hover:bg-black/60 shadow-none border-none">
@@ -147,10 +147,10 @@ export default function MealDetailModal({ userId, meal, onClose, onUpdated }: Me
             <div>
               <div className="flex justify-between items-start gap-4">
                 <div>
-                  <h3 className="text-3xl font-serif font-bold text-[#2D2D2A]">{meal.name}</h3>
+                  <h3 className="text-3xl font-serif font-bold text-[#2D2D2A] dark:text-[#F8F7F2]">{meal.name}</h3>
                   <p className="text-[#8E8D8A] mt-1">{format(ensureDate(meal.timestamp), 'h:mm a')}</p>
                 </div>
-                <div className="text-right shrink-0 bg-white px-4 py-2 rounded-2xl shadow-sm border border-[#E8E6E0]">
+                <div className="text-right shrink-0 bg-white dark:bg-[#2D2D2A] px-4 py-2 rounded-2xl shadow-sm border border-[#E8E6E0] dark:border-[#3D3D3A]">
                   <p className="text-3xl font-bold text-[#5A6E4B]">{meal.calories}</p>
                   <p className="text-[10px] font-black uppercase tracking-widest text-[#8E8D8A]">kcal</p>
                 </div>
@@ -158,9 +158,9 @@ export default function MealDetailModal({ userId, meal, onClose, onUpdated }: Me
             </div>
 
             {/* Servings Control */}
-            <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-[#E8E6E0]">
+            <div className="flex items-center justify-between bg-white dark:bg-[#2D2D2A] p-4 rounded-2xl border border-[#E8E6E0] dark:border-[#3D3D3A]">
               <span className="font-bold text-[#8E8D8A]">Servings</span>
-              <div className="flex items-center gap-4 bg-[#F8F7F2] rounded-xl p-1">
+              <div className="flex items-center gap-4 bg-[#F8F7F2] dark:bg-[#1a1a18] rounded-xl p-1">
                 <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => updateServings(servings - 1)}>-</Button>
                 <span className="text-lg font-bold w-6 text-center">{servings}</span>
                 <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => updateServings(servings + 1)}>+</Button>
@@ -169,15 +169,15 @@ export default function MealDetailModal({ userId, meal, onClose, onUpdated }: Me
 
             {/* Macros */}
             <div className="grid grid-cols-3 gap-3">
-              <div className="bg-white p-4 rounded-2xl border border-[#E8E6E0] text-center">
+              <div className="bg-white dark:bg-[#2D2D2A] p-4 rounded-2xl border border-[#E8E6E0] dark:border-[#3D3D3A] text-center">
                 <p className="text-[#E57373] text-xs font-black uppercase tracking-widest mb-1">Protein</p>
                 <p className="text-xl font-bold">{meal.protein}g</p>
               </div>
-              <div className="bg-white p-4 rounded-2xl border border-[#E8E6E0] text-center">
+              <div className="bg-white dark:bg-[#2D2D2A] p-4 rounded-2xl border border-[#E8E6E0] dark:border-[#3D3D3A] text-center">
                 <p className="text-[#81C784] text-xs font-black uppercase tracking-widest mb-1">Carbs</p>
                 <p className="text-xl font-bold">{meal.carbs}g</p>
               </div>
-              <div className="bg-white p-4 rounded-2xl border border-[#E8E6E0] text-center">
+              <div className="bg-white dark:bg-[#2D2D2A] p-4 rounded-2xl border border-[#E8E6E0] dark:border-[#3D3D3A] text-center">
                 <p className="text-[#FFB74D] text-xs font-black uppercase tracking-widest mb-1">Fats</p>
                 <p className="text-xl font-bold">{meal.fats}g</p>
               </div>
@@ -186,11 +186,11 @@ export default function MealDetailModal({ userId, meal, onClose, onUpdated }: Me
             {/* Ingredients */}
             {meal.ingredients && meal.ingredients.length > 0 && (
               <div className="space-y-4">
-                <h4 className="font-serif text-xl font-bold text-[#2D2D2A]">Ingredients</h4>
+                <h4 className="font-serif text-xl font-bold text-[#2D2D2A] dark:text-[#F8F7F2]">Ingredients</h4>
                 <div className="space-y-2">
                   {meal.ingredients.map((ing, idx) => (
-                    <div key={idx} className="flex justify-between items-center bg-white p-4 rounded-2xl border border-[#E8E6E0]">
-                      <span className="font-medium text-[#2D2D2A]">{ing.name}</span>
+                    <div key={idx} className="flex justify-between items-center bg-white dark:bg-[#2D2D2A] p-4 rounded-2xl border border-[#E8E6E0] dark:border-[#3D3D3A]">
+                      <span className="font-medium text-[#2D2D2A] dark:text-[#F8F7F2]">{ing.name}</span>
                       <span className="text-[#8E8D8A] font-bold">{ing.calories} kcal</span>
                     </div>
                   ))}
@@ -199,17 +199,17 @@ export default function MealDetailModal({ userId, meal, onClose, onUpdated }: Me
             )}
 
             {/* Fix Issue */}
-            <div className="pt-4 border-t border-[#E8E6E0]">
+            <div className="pt-4 border-t border-[#E8E6E0] dark:border-[#3D3D3A]">
               <AnimatePresence>
                 {!showFixIssue ? (
-                  <Button variant="ghost" className="w-full gap-2 text-[#8E8D8A] hover:bg-[#F1F3EE] hover:text-[#2D2D2A]" onClick={() => setShowFixIssue(true)}>
+                  <Button variant="ghost" className="w-full gap-2 text-[#8E8D8A] hover:bg-[#F1F3EE] dark:bg-[#3D3D3A] hover:text-[#2D2D2A] dark:text-[#F8F7F2]" onClick={() => setShowFixIssue(true)}>
                     <Wrench className="h-4 w-4" /> Something wrong with the nutrition?
                   </Button>
                 ) : (
                   <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="space-y-4">
                     <p className="text-sm font-bold">Describe what needs fixing:</p>
                     <textarea 
-                      className="w-full p-4 rounded-2xl border border-[#E8E6E0] bg-white resize-none h-24 text-sm focus:outline-none focus:ring-2 focus:ring-[#5A6E4B]/20"
+                      className="w-full p-4 rounded-2xl border border-[#E8E6E0] dark:border-[#3D3D3A] bg-white dark:bg-[#2D2D2A] resize-none h-24 text-sm focus:outline-none focus:ring-2 focus:ring-[#5A6E4B]/20"
                       placeholder="e.g. 'It was actually a double cheeseburger' or 'Missing 2 slices of bacon'"
                       value={issueText}
                       onChange={e => setIssueText(e.target.value)}
