@@ -1,0 +1,114 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // User Profile Validation
+    function isValidUserProfile(data) {
+      return data.userId == request.auth.uid
+        && data.onboardingCompleted is bool
+        && (data.get('age', 25) is int)
+        && (data.get('gender', 'male') in ['male', 'female', 'other'])
+        && (data.get('height', 170) is number)
+        && (data.get('weight', 70) is number)
+        && (data.get('currentWeight', 70) is number)
+        && (data.get('goal', 'maintain') in ['lose', 'maintain', 'gain'])
+        && (data.get('activityLevel', 'sedentary') in ['sedentary', 'light', 'moderate', 'active', 'very_active'])
+        && (data.get('tdee', 2000) is number)
+        && (data.get('dailyCalorieGoal', 2000) is number);
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidId(userId) && isValidUserProfile(incoming()) && incoming().createdAt == request.time;
+      allow update: if isOwner(userId) && isValidUserProfile(incoming()) 
+        && incoming().diff(existing()).affectedKeys().hasOnly(['age', 'gender', 'height', 'weight', 'goal', 'activityLevel', 'tdee', 'dailyCalorieGoal', 'onboardingCompleted', 'updatedAt', 'name', 'currentWeight'])
+        && incoming().updatedAt == request.time
+        && incoming().createdAt == existing().createdAt;
+    }
+
+    // Meal Validation
+    function isValidMeal(data) {
+      return data.name is string && data.name.size() <= 100
+        && data.calories is number && data.calories >= 0
+        && data.protein is number && data.protein >= 0
+        && data.carbs is number && data.carbs >= 0
+        && data.fats is number && data.fats >= 0
+        && (!('ingredients' in data) || (data.ingredients is list && data.ingredients.size() <= 100))
+        && (!('servings' in data) || (data.servings is number && data.servings > 0))
+        && (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() <= 1048576))
+        && data.timestamp is timestamp;
+    }
+
+    match /users/{userId}/meals/{mealId} {
+      allow list: if isOwner(userId);
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidMeal(incoming()) && incoming().createdAt == request.time;
+      allow update: if isOwner(userId) && isValidMeal(incoming())
+        && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'calories', 'protein', 'carbs', 'fats', 'timestamp', 'imageUrl', 'ingredients', 'servings', 'createdAt'])
+        && incoming().createdAt == existing().createdAt;
+      allow delete: if isOwner(userId);
+    }
+
+    // Workout Validation
+    function isValidWorkout(data) {
+      return data.type is string && data.type.size() <= 100
+        && data.duration is int && data.duration > 0
+        && data.intensity in ['light', 'moderate', 'intense']
+        && data.caloriesBurned is int && data.caloriesBurned >= 0
+        && data.timestamp is timestamp;
+    }
+
+    match /users/{userId}/workouts/{workoutId} {
+      allow list: if isOwner(userId);
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidWorkout(incoming()) && incoming().createdAt == request.time;
+      allow delete: if isOwner(userId);
+    }
+
+    // StepLog Validation
+    function isValidStepLog(data) {
+      return data.count is int && data.count >= 0
+        && data.caloriesBurned is number && data.caloriesBurned >= 0
+        && data.timestamp is timestamp;
+    }
+
+    match /users/{userId}/steps/{stepLogId} {
+      allow list: if isOwner(userId);
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidStepLog(incoming()) && incoming().createdAt == request.time;
+      allow update: if isOwner(userId) && isValidStepLog(incoming())
+        && incoming().diff(existing()).affectedKeys().hasOnly(['count', 'caloriesBurned', 'timestamp']);
+      allow delete: if isOwner(userId);
+    }
+
+    match /users/{userId}/health_sync/{syncId} {
+      allow read: if isOwner(userId);
+      allow write: if false;
+    }
+  }
+}

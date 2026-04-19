@@ -1,0 +1,13 @@
+{
+  "name": "Remix: Cal AI Clone - Calorie Tracker",
+  "description": "A minimal calorie tracking app using AI to identify food from photos, calculate TDEE, and log daily macros.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "AI Food Recognition",
+    "TDEE Calculation",
+    "Google OAuth",
+    "Macro Tracking"
+  ]
+}

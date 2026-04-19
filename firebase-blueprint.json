@@ -1,0 +1,97 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "User statistics and goals for TDEE calculation.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "age": { "type": "integer" },
+        "gender": { "type": "string", "enum": ["male", "female", "other"] },
+        "height": { "type": "number", "description": "Height in cm" },
+        "weight": { "type": "number", "description": "Weight in kg" },
+        "goal": { "type": "string", "enum": ["lose", "maintain", "gain"] },
+        "activityLevel": { "type": "string", "enum": ["sedentary", "light", "moderate", "active", "very_active"] },
+        "tdee": { "type": "number" },
+        "dailyCalorieGoal": { "type": "number" },
+        "onboardingCompleted": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "onboardingCompleted"]
+    },
+    "Meal": {
+      "title": "Meal Entry",
+      "description": "A single meal entry with macros and AI analysis results.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "calories": { "type": "number" },
+        "protein": { "type": "number" },
+        "carbs": { "type": "number" },
+        "fats": { "type": "number" },
+        "imageUrl": { "type": "string" },
+        "ingredients": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "calories": { "type": "number" }
+            }
+          }
+        },
+        "servings": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "calories", "timestamp"]
+    },
+    "Workout": {
+      "title": "Workout Entry",
+      "description": "Physical activity session with calorie burn.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string" },
+        "duration": { "type": "integer" },
+        "intensity": { "type": "string", "enum": ["light", "moderate", "intense"] },
+        "caloriesBurned": { "type": "integer" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["type", "duration", "caloriesBurned", "timestamp"]
+    },
+    "StepLog": {
+      "title": "Step Log",
+      "description": "Daily step count and associated calorie burn.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "count": { "type": "integer" },
+        "caloriesBurned": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["count", "caloriesBurned", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profiles and settings."
+    },
+    "/users/{userId}/meals/{mealId}": {
+      "schema": "Meal",
+      "description": "Individual meals logged by the user."
+    },
+    "/users/{userId}/workouts/{workoutId}": {
+      "schema": "Workout",
+      "description": "User workout history."
+    },
+    "/users/{userId}/steps/{stepLogId}": {
+      "schema": "StepLog",
+      "description": "User step tracking history."
+    }
+  }
+}
