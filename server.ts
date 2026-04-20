@@ -38,9 +38,10 @@ try {
   }
   
   db = admin.firestore();
-  if (config.firestoreDatabaseId) {
-    db.settings({ databaseId: config.firestoreDatabaseId });
-  }
+  const databaseId = process.env.FIRESTORE_DATABASE_ID || config.firestoreDatabaseId;
+if (databaseId) {
+    db.settings({ databaseId });
+}
 } catch (e) {
   console.log('Firebase Admin could not be initialized:', e);
 }
