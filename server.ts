@@ -78,13 +78,11 @@ async function startServer() {
 
       steps = Math.round(
         stepsMetric?.data
-          ?.filter((d: any) => d.date?.startsWith(today))
           ?.reduce((sum: number, d: any) => sum + (d.qty || 0), 0) || 0
       );
 
       activeCalories = Math.round(
         caloriesMetric?.data
-          ?.filter((d: any) => d.date?.startsWith(today))
           ?.reduce((sum: number, d: any) => sum + (d.qty || 0), 0) || 0
       );
 
