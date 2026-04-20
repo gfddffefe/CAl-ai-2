@@ -101,6 +101,8 @@ async function startServer() {
       );
 
       console.log('Parsed from Health Auto Export - steps:', steps, 'activeCalories:', activeCalories);
+      console.log('userId from header:', req.headers['x-user-id']);
+      console.log('userId from body:', req.body.userId);
     } else {
       // Original Shortcuts format
       userId = req.body.userId || req.headers['x-user-id'] as string;
