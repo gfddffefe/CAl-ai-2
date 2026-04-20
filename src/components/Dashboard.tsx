@@ -5,8 +5,8 @@ import { UserProfile, Meal, Workout, StepLog } from '../types';
 import { Button } from './ui/button';
 import { Progress } from './ui/progress';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Plus, Settings, History, Utensils, PieChart as PieChartIcon, Camera, Dumbbell, Footprints, TrendingUp, X, Menu, LogOut, ChevronRight, Trash2, Target, HeartPulse, Sun, Moon } from 'lucide-react';
-import { format, startOfDay, addDays, subDays, isSameDay, startOfWeek, eachDayOfInterval } from 'date-fns';
+import { Plus, Settings, History, Utensils, PieChart as PieChartIcon, Camera, Dumbbell, Footprints, TrendingUp, X, Menu, LogOut, ChevronRight, ChevronLeft, Trash2, Target, HeartPulse, Sun, Moon } from 'lucide-react';
+import { format, startOfDay, addDays, subDays, isSameDay, startOfWeek, eachDayOfInterval, addWeeks, subWeeks } from 'date-fns';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 import MealLogger from './MealLogger';
 import WorkoutLogger from './WorkoutLogger';
@@ -97,6 +97,7 @@ export default function Dashboard({ profile, themeMode, onThemeChange }: Dashboa
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [steps, setSteps] = useState<StepLog | null>(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [activeView, setActiveView] = useState<ViewType>('dashboard');
   const [hasDataMap, setHasDataMap] = useState<Record<string, boolean>>({});
   
@@ -165,11 +166,18 @@ export default function Dashboard({ profile, themeMode, onThemeChange }: Dashboa
     }
   }, []);
 
-  // Generate week days
-  const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+  // Sync currentWeekStart with selectedDate
+  useEffect(() => {
+    const startObj = startOfWeek(selectedDate, { weekStartsOn: 1 });
+    if (!isSameDay(startObj, currentWeekStart)) {
+      setCurrentWeekStart(startObj);
+    }
+  }, [selectedDate, currentWeekStart]);
+
+  // Generate week days dynamically
   const weekDays = eachDayOfInterval({
-    start: weekStart,
-    end: addDays(weekStart, 6),
+    start: currentWeekStart,
+    end: addDays(currentWeekStart, 6),
   });
 
   const fetchData = async (targetDate: Date) => {
@@ -241,26 +249,6 @@ export default function Dashboard({ profile, themeMode, onThemeChange }: Dashboa
 
   const isPastDay = !isSameDay(selectedDate, new Date()) && selectedDate < new Date();
 
-  const fetchHealthSync = async (dateKey: string) => {
-    try {
-      const { getDoc, doc } = await import('firebase/firestore');
-      const syncDoc = await getDoc(doc(db, 'users', profile.userId, 'health_sync', dateKey));
-      if (syncDoc.exists()) {
-        const data = syncDoc.data();
-        setStepsFromHealth(data.steps || 0);
-        setCaloriesFromHealth(data.activeCalories || 0);
-        setIsHealthSynced(true);
-        setLastSyncTime(data.syncedAt || null);
-      } else {
-        setStepsFromHealth(0);
-        setCaloriesFromHealth(0);
-        setIsHealthSynced(false);
-      }
-    } catch (err) {
-      console.error('Error fetching health sync:', err);
-    }
-  };
-
   useEffect(() => {
     // Try loading from localStorage first for faster UI
     const dateKey = format(selectedDate, 'yyyy-MM-dd');
@@ -276,31 +264,40 @@ export default function Dashboard({ profile, themeMode, onThemeChange }: Dashboa
       }
     }
     fetchData(selectedDate);
-    fetchHealthSync(dateKey);
   }, [profile.userId, selectedDate]);
 
   // Listen to health_sync dynamically
   useEffect(() => {
+    // Reset to 0 when switching days before new data loads
+    setStepsFromHealth(0);
+    setCaloriesFromHealth(0);
+    setIsHealthSynced(false);
+    setLastSyncTime(null);
+
+    let unsubscribe = () => {};
+    
     import('firebase/firestore').then(({ onSnapshot, doc }) => {
       const dateKey = format(selectedDate, 'yyyy-MM-dd');
       const syncRef = doc(db, 'users', profile.userId, 'health_sync', dateKey);
       
-      const unsubscribe = onSnapshot(syncRef, (docSnap) => {
-        if (docSnap.exists()) {
-          const data = docSnap.data();
+      unsubscribe = onSnapshot(syncRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
           setStepsFromHealth(data.steps || 0);
           setCaloriesFromHealth(data.activeCalories || 0);
           setIsHealthSynced(true);
           setLastSyncTime(data.syncedAt || null);
         } else {
+          // No health data for this day — reset to 0
           setStepsFromHealth(0);
           setCaloriesFromHealth(0);
           setIsHealthSynced(false);
           setLastSyncTime(null);
         }
       });
-      return () => unsubscribe();
     });
+
+    return () => unsubscribe();
   }, [profile.userId, selectedDate]);
 
   const mealStats = meals.reduce(
@@ -508,32 +505,42 @@ export default function Dashboard({ profile, themeMode, onThemeChange }: Dashboa
           </div>
           
           {/* Day Selector - Mobile */}
-          <div ref={scrollRef} className="flex overflow-x-auto px-4 pb-4 no-scrollbar gap-2 scroll-smooth">
-            {weekDays.map((day) => {
-              const dateKey = format(day, 'yyyy-MM-dd');
-              const isSelected = isSameDay(day, selectedDate);
-              const isToday = isSameDay(day, new Date());
-              return (
-                <button
-                  key={day.toString()}
-                  ref={isToday ? todayRef : null}
-                  onClick={() => setSelectedDate(day)}
-                  className={`flex flex-col items-center justify-center min-w-[56px] h-16 rounded-2xl transition-all ${
-                    isSelected 
-                      ? 'bg-[#5A6E4B] text-white shadow-lg' 
-                      : 'bg-[#F8F7F2] dark:bg-[#1a1a18] text-[#8E8D8A] hover:bg-[#F1F3EE] dark:bg-[#3D3D3A]'
-                  }`}
-                >
-                  <span className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${isSelected ? 'text-white/70' : ''}`}>
-                    {format(day, 'EEE')}
-                  </span>
-                  <span className="text-lg font-black">{format(day, 'd')}</span>
-                  {hasDataMap[dateKey] && (
-                    <div className={`h-1 w-1 rounded-full mt-1 ${isSelected ? 'bg-white dark:bg-[#2D2D2A]' : 'bg-[#5A6E4B]'}`} />
-                  )}
-                </button>
-              );
-            })}
+          <div className="flex items-center px-1 pb-4">
+            <Button variant="ghost" size="icon" onClick={() => setSelectedDate(subWeeks(selectedDate, 1))} className="text-[#8E8D8A] shrink-0">
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+            <div ref={scrollRef} className="flex overflow-x-auto no-scrollbar gap-2 scroll-smooth flex-1">
+              {weekDays.map((day) => {
+                const dateKey = format(day, 'yyyy-MM-dd');
+                const isSelected = isSameDay(day, selectedDate);
+                const isToday = isSameDay(day, new Date());
+                return (
+                  <button
+                    key={day.toString()}
+                    ref={isToday ? todayRef : null}
+                    onClick={() => setSelectedDate(day)}
+                    className={`flex flex-col items-center justify-center min-w-[50px] shrink-0 h-16 rounded-2xl transition-all ${
+                      isSelected 
+                        ? 'bg-[#5A6E4B] text-white shadow-lg' 
+                        : isToday
+                          ? 'bg-[#F8F7F2] dark:bg-[#1a1a18] text-[#5A6E4B] border border-[#5A6E4B] shadow-sm'
+                          : 'bg-[#F8F7F2] dark:bg-[#1a1a18] text-[#8E8D8A] border border-transparent hover:bg-[#F1F3EE] dark:hover:bg-[#3D3D3A]'
+                    }`}
+                  >
+                    <span className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${isSelected ? 'text-white/70' : ''}`}>
+                      {format(day, 'EEE')}
+                    </span>
+                    <span className="text-lg font-black">{format(day, 'd')}</span>
+                    {hasDataMap[dateKey] && (
+                      <div className={`h-1 w-1 rounded-full mt-1 ${isSelected ? 'bg-white dark:bg-[#2D2D2A]' : 'bg-[#5A6E4B]'}`} />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <Button variant="ghost" size="icon" onClick={() => setSelectedDate(addWeeks(selectedDate, 1))} className="text-[#8E8D8A] shrink-0">
+              <ChevronRight className="h-5 w-5" />
+            </Button>
           </div>
         </header>
 
@@ -551,28 +558,39 @@ export default function Dashboard({ profile, themeMode, onThemeChange }: Dashboa
                   </p>
                 </div>
 
-                <div className="hidden lg:flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-                  {weekDays.map((day) => {
-                    const isSelected = isSameDay(day, selectedDate);
-                    const dateKey = format(day, 'yyyy-MM-dd');
-                    return (
-                      <button
-                        key={day.toString()}
-                        onClick={() => setSelectedDate(day)}
-                        className={`flex flex-col items-center justify-center min-w-[70px] h-20 rounded-[24px] transition-all ${
-                          isSelected 
-                            ? 'bg-[#5A6E4B] text-white shadow-lg' 
-                            : 'bg-white dark:bg-[#2D2D2A] border border-[#E8E6E0] dark:border-[#3D3D3A] text-[#8E8D8A] hover:bg-[#F8F7F2] dark:bg-[#1a1a18]'
-                        }`}
-                      >
-                        <span className="text-[10px] font-bold uppercase tracking-widest mb-1">{format(day, 'EEE')}</span>
-                        <span className="text-xl font-black">{format(day, 'd')}</span>
-                        {hasDataMap[dateKey] && (
-                          <div className={`h-1.5 w-1.5 rounded-full mt-1 ${isSelected ? 'bg-white dark:bg-[#2D2D2A]' : 'bg-[#5A6E4B]'}`} />
-                        )}
-                      </button>
-                    );
-                  })}
+                <div className="hidden lg:flex items-center gap-2">
+                  <Button variant="ghost" size="icon" onClick={() => setSelectedDate(subWeeks(selectedDate, 1))} className="text-[#8E8D8A] shrink-0 bg-white dark:bg-[#2D2D2A] border border-[#E8E6E0] dark:border-[#3D3D3A] rounded-full hover:bg-[#F8F7F2] dark:hover:bg-[#1a1a18]">
+                    <ChevronLeft className="h-5 w-5" />
+                  </Button>
+                  <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar pt-1">
+                    {weekDays.map((day) => {
+                      const isSelected = isSameDay(day, selectedDate);
+                      const isToday = isSameDay(day, new Date());
+                      const dateKey = format(day, 'yyyy-MM-dd');
+                      return (
+                        <button
+                          key={day.toString()}
+                          onClick={() => setSelectedDate(day)}
+                          className={`flex flex-col items-center justify-center min-w-[70px] shrink-0 h-20 rounded-[24px] transition-all ${
+                            isSelected 
+                              ? 'bg-[#5A6E4B] text-white shadow-lg' 
+                              : isToday
+                                ? 'bg-white dark:bg-[#2D2D2A] border border-[#5A6E4B] text-[#5A6E4B] hover:bg-[#F8F7F2] dark:hover:bg-[#1a1a18] shadow-sm'
+                                : 'bg-white dark:bg-[#2D2D2A] border border-[#E8E6E0] dark:border-[#3D3D3A] text-[#8E8D8A] hover:bg-[#F8F7F2] dark:hover:bg-[#1a1a18]'
+                          }`}
+                        >
+                          <span className="text-[10px] font-bold uppercase tracking-widest mb-1">{format(day, 'EEE')}</span>
+                          <span className="text-xl font-black">{format(day, 'd')}</span>
+                          {hasDataMap[dateKey] && (
+                            <div className={`h-1.5 w-1.5 rounded-full mt-1 ${isSelected ? 'bg-white dark:bg-[#2D2D2A]' : 'bg-[#5A6E4B]'}`} />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => setSelectedDate(addWeeks(selectedDate, 1))} className="text-[#8E8D8A] shrink-0 bg-white dark:bg-[#2D2D2A] border border-[#E8E6E0] dark:border-[#3D3D3A] rounded-full hover:bg-[#F8F7F2] dark:hover:bg-[#1a1a18]">
+                    <ChevronRight className="h-5 w-5" />
+                  </Button>
                 </div>
               </div>
 
@@ -608,24 +626,26 @@ export default function Dashboard({ profile, themeMode, onThemeChange }: Dashboa
                       </div>
                     </div>
 
-                    <div className="flex-1 w-full grid grid-cols-2 gap-4">
-                      <div className="p-6 rounded-[32px] bg-[#F1F3EE] dark:bg-[#3D3D3A] border border-[#E8E6E0] dark:border-[#3D3D3A]/50">
+                    <div className="flex-1 w-full grid grid-cols-2 gap-3 lg:gap-4">
+                      <div className="p-4 lg:p-6 rounded-[32px] bg-[#F1F3EE] dark:bg-[#3D3D3A] border border-[#E8E6E0] dark:border-[#3D3D3A]/50 flex flex-col justify-between">
                         <p className="text-[10px] font-black uppercase tracking-widest text-[#8E8D8A] mb-1">Eaten</p>
                         <p className="text-2xl font-bold text-[#2D2D2A] dark:text-[#F8F7F2]">{mealStats.calories}</p>
                       </div>
-                      <div className="p-6 rounded-[32px] bg-[#F1F3EE] dark:bg-[#3D3D3A] border border-[#E8E6E0] dark:border-[#3D3D3A]/50 relative">
-                        <div className="flex justify-between items-center mb-1">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-[#8E8D8A]">Burned</p>
+                      <div className="p-4 lg:p-6 rounded-[32px] bg-[#F1F3EE] dark:bg-[#3D3D3A] border border-[#E8E6E0] dark:border-[#3D3D3A]/50 relative overflow-hidden flex flex-col justify-between">
+                        <div className="flex flex-wrap xl:flex-nowrap justify-between items-start gap-1.5 mb-1">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-[#8E8D8A] mt-0.5">Burned</p>
                           {isHealthSynced && (
-                            <span className="text-[8px] font-bold uppercase text-[#5A6E4B] bg-[#5A6E4B]/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <span className="text-[8px] font-bold uppercase text-[#5A6E4B] bg-[#5A6E4B]/10 px-2 py-0.5 rounded-full flex items-center shrink-0 whitespace-nowrap">
                               Apple Health
                             </span>
                           )}
                         </div>
-                        <p className="text-2xl font-bold text-[#5A6E4B]">{totalBurned}</p>
-                        {isHealthSynced && lastSyncTime && (
-                          <p className="text-[9px] text-[#8E8D8A] mt-2 font-medium">Last synced: {format(new Date(lastSyncTime), 'h:mm a')}</p>
-                        )}
+                        <div>
+                          <p className="text-2xl font-bold text-[#5A6E4B]">{totalBurned}</p>
+                          {isHealthSynced && lastSyncTime && (
+                            <p className="text-[9px] text-[#8E8D8A] mt-1 font-medium leading-tight">Last synced:<br/>{format(new Date(lastSyncTime), 'h:mm a')}</p>
+                          )}
+                        </div>
                       </div>
                       <div className="col-span-2 p-8 lg:p-10 rounded-[40px] bg-[#2D2D2A] text-white overflow-hidden shadow-2xl">
                         <div className="flex justify-between items-center mb-6">
