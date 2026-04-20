@@ -52,21 +52,52 @@ async function startServer() {
 
   app.use(express.json({ limit: '20mb' }));
 
-  app.use((req, res, next) => {
-  console.log('Incoming request:', req.method, req.path, JSON.stringify(req.body));
-  next();
-});
   // API Routes
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok' });
   });
 
   app.post('/api/health-sync', async (req, res) => {
-    console.log('Health sync received:', req.body);
-    const { userId, steps, activeCalories, date } = req.body;
-    
+    console.log('Health sync received:', JSON.stringify(req.body).substring(0, 200));
+
+    let userId, steps, activeCalories;
+
+    // Format from Health Auto Export app
+    if (req.body.data?.metrics) {
+      const metrics = req.body.data.metrics;
+      userId = req.body.userId || req.headers['x-user-id'] as string;
+
+      const stepsMetric = metrics.find((m: any) => 
+        m.name === 'steps' || m.name === 'step_count' || m.name === 'Steps'
+      );
+      const caloriesMetric = metrics.find((m: any) => 
+        m.name === 'active_energy' || m.name === 'active_calories' || m.name === 'Active Energy'
+      );
+
+      const today = new Date().toISOString().split('T')[0];
+
+      steps = Math.round(
+        stepsMetric?.data
+          ?.filter((d: any) => d.date?.startsWith(today))
+          ?.reduce((sum: number, d: any) => sum + (d.qty || 0), 0) || 0
+      );
+
+      activeCalories = Math.round(
+        caloriesMetric?.data
+          ?.filter((d: any) => d.date?.startsWith(today))
+          ?.reduce((sum: number, d: any) => sum + (d.qty || 0), 0) || 0
+      );
+
+      console.log('Parsed from Health Auto Export - steps:', steps, 'activeCalories:', activeCalories);
+    } else {
+      // Original Shortcuts format
+      userId = req.body.userId || req.headers['x-user-id'] as string;
+      steps = Number(req.body.steps) || 0;
+      activeCalories = Number(req.body.activeCalories) || 0;
+    }
+
     if (!userId) {
-      res.status(400).json({ error: 'Missing userId' });
+      res.status(400).json({ error: 'Missing userId — add x-user-id header' });
       return;
     }
 
@@ -74,18 +105,16 @@ async function startServer() {
       res.status(500).json({ error: 'Database not initialized' });
       return;
     }
-    
+
     try {
       const dateKey = new Date().toISOString().split('T')[0];
-      
-      // Save to Firestore under the user's data for that date
       await db.collection('users').doc(userId).collection('health_sync').doc(dateKey).set({
-        steps: Number(steps) || 0,
-        activeCalories: Number(activeCalories) || 0,
+        steps,
+        activeCalories,
         syncedAt: new Date().toISOString()
       }, { merge: true });
-      
-      res.json({ success: true, message: 'Health data synced' });
+
+      res.json({ success: true, steps, activeCalories });
     } catch (error) {
       console.error('Health sync error:', error);
       res.status(500).json({ error: 'Failed to sync health data' });
