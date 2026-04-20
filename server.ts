@@ -74,15 +74,29 @@ async function startServer() {
         m.name === 'active_energy' || m.name === 'active_calories' || m.name === 'Active Energy'
       );
 
-      const today = new Date().toISOString().split('T')[0];
+      const getLocalDateFromSample = (dateStr: string): string => {
+        // dateStr example: "2026-04-19 15:27:03 -0400"
+        // Just take the date part directly since it's already in local time
+        return dateStr.substring(0, 10); // "2026-04-19"
+      };
+
+      const todayLocal = getLocalDateFromSample(
+        stepsMetric?.data?.[0]?.date || new Date().toISOString()
+      );
+
+      // Find the most recent date in the data
+      const allDates = stepsMetric?.data?.map((d: any) => d.date?.substring(0, 10)) || [];
+      const mostRecentDate = allDates.sort().reverse()[0] || todayLocal;
 
       steps = Math.round(
         stepsMetric?.data
+          ?.filter((d: any) => d.date?.startsWith(mostRecentDate))
           ?.reduce((sum: number, d: any) => sum + (d.qty || 0), 0) || 0
       );
 
       activeCalories = Math.round(
         caloriesMetric?.data
+          ?.filter((d: any) => d.date?.startsWith(mostRecentDate))
           ?.reduce((sum: number, d: any) => sum + (d.qty || 0), 0) || 0
       );
 
