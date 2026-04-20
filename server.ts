@@ -71,7 +71,7 @@ async function startServer() {
     }
     
     try {
-      const dateKey = date ? new Date(date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+      const dateKey = new Date().toISOString().split('T')[0];
       
       // Save to Firestore under the user's data for that date
       await db.collection('users').doc(userId).collection('health_sync').doc(dateKey).set({
