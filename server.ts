@@ -52,6 +52,10 @@ async function startServer() {
 
   app.use(express.json({ limit: '20mb' }));
 
+  app.use((req, res, next) => {
+  console.log('Incoming request:', req.method, req.path, JSON.stringify(req.body));
+  next();
+});
   // API Routes
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok' });
