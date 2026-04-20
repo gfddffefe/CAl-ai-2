@@ -66,6 +66,7 @@ async function startServer() {
     if (req.body.data?.metrics) {
       const metrics = req.body.data.metrics;
       userId = req.body.userId || req.headers['x-user-id'] as string;
+      console.log('Final userId:', userId);
 
       const stepsMetric = metrics.find((m: any) => 
         m.name === 'steps' || m.name === 'step_count' || m.name === 'Steps'
