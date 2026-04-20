@@ -124,7 +124,18 @@ async function startServer() {
     }
 
     try {
-      const dateKey = new Date().toISOString().split('T')[0];
+      // Use the most recent date from the health data (phone's local time)
+      const metrics = req.body.data?.metrics;
+      const stepsMetric = metrics?.find((m: any) => m.name === 'steps' || m.name === 'step_count' || m.name === 'Steps');
+      const caloriesMetric = metrics?.find((m: any) => m.name === 'active_energy' || m.name === 'active_calories' || m.name === 'Active Energy');
+      
+      const mostRecentSample = stepsMetric?.data?.[stepsMetric.data?.length - 1]?.date 
+        || caloriesMetric?.data?.[caloriesMetric.data?.length - 1]?.date;
+      const dateKey = mostRecentSample 
+        ? mostRecentSample.substring(0, 10) 
+        : new Date().toISOString().split('T')[0];
+      console.log('Using date:', dateKey);
+
       console.log('Saving to Firestore:', { userId, steps, activeCalories, dateKey });
       await db.collection('users').doc(userId).collection('health_sync').doc(dateKey).set({
         steps,
