@@ -116,6 +116,8 @@ async function startServer() {
       return;
     }
 
+    console.log('db initialized:', !!db);
+
     if (!db) {
       res.status(500).json({ error: 'Database not initialized' });
       return;
@@ -123,6 +125,7 @@ async function startServer() {
 
     try {
       const dateKey = new Date().toISOString().split('T')[0];
+      console.log('Saving to Firestore:', { userId, steps, activeCalories, dateKey });
       await db.collection('users').doc(userId).collection('health_sync').doc(dateKey).set({
         steps,
         activeCalories,
