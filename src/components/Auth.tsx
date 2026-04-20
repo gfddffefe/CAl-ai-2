@@ -15,18 +15,18 @@ export default function Auth() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#F8F7F2] p-4 font-sans">
+    <div className="flex min-h-screen items-center justify-center bg-[#F8F7F2] dark:bg-[#1a1a18] p-4 font-sans">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <Card className="w-full max-w-md border-[#E8E6E0] bg-white p-8 shadow-sm rounded-[32px]">
+        <Card className="w-full max-w-md border-[#E8E6E0] dark:border-[#3D3D3A] bg-white dark:bg-[#2D2D2A] p-8 shadow-sm rounded-[32px]">
           <CardHeader className="space-y-2 text-center pb-8">
             <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#5A6E4B] text-white">
               <Utensils className="h-8 w-8" />
             </div>
-            <CardTitle className="text-4xl font-serif font-bold tracking-tight text-[#2D2D2A]">Cal AI</CardTitle>
+            <CardTitle className="text-4xl font-serif font-bold tracking-tight text-[#2D2D2A] dark:text-[#F8F7F2]">Cal AI</CardTitle>
             <CardDescription className="text-[#8E8D8A] text-base">
               Identify food naturally with Gemini AI.
             </CardDescription>

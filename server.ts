@@ -3,7 +3,7 @@ import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
-import admin from 'firebase-admin';
+import * as admin from 'firebase-admin';
 import fs from 'fs';
 
 dotenv.config();
@@ -38,10 +38,9 @@ try {
   }
   
   db = admin.firestore();
-  const databaseId = process.env.FIRESTORE_DATABASE_ID || config.firestoreDatabaseId;
-if (databaseId) {
-    db.settings({ databaseId });
-}
+  if (config.firestoreDatabaseId) {
+    db.settings({ databaseId: config.firestoreDatabaseId });
+  }
 } catch (e) {
   console.log('Firebase Admin could not be initialized:', e);
 }
@@ -72,7 +71,8 @@ async function startServer() {
     }
     
     try {
-      const dateKey = new Date().toISOString().split('T')[0];      
+      const dateKey = date ? new Date(date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+      
       // Save to Firestore under the user's data for that date
       await db.collection('users').doc(userId).collection('health_sync').doc(dateKey).set({
         steps: Number(steps) || 0,

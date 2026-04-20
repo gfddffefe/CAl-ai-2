@@ -371,7 +371,7 @@ ONLY return the JSON object, nothing else.`;
                     isDragActive ? 'border-[#5A6E4B] bg-[#F1F3EE] dark:bg-[#3D3D3A]' : 'border-[#E8E6E0] dark:border-[#3D3D3A] bg-[#F8F7F2] dark:bg-[#1a1a18] hover:border-[#5A6E4B] hover:bg-[#F1F3EE] dark:bg-[#3D3D3A]'
                   }`}
                 >
-                  <input {...(getInputProps({ capture: 'environment' } as any))} />
+                  <input {...(getInputProps())} />
                   {converting ? (
                     <div className="flex flex-col items-center justify-center space-y-4 text-center">
                       <Loader2 className="h-8 w-8 animate-spin text-[#5A6E4B] stroke-[3]" />

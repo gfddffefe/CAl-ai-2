@@ -105,7 +105,12 @@ export default function Dashboard({ profile, themeMode, onThemeChange }: Dashboa
   const [showStepTracker, setShowStepTracker] = useState(false);
   const [showGoalEditor, setShowGoalEditor] = useState(false);
   const [showHealthSync, setShowHealthSync] = useState(false);
-  const [healthSyncData, setHealthSyncData] = useState<any>(null);
+  
+  const [stepsFromHealth, setStepsFromHealth] = useState(0);
+  const [caloriesFromHealth, setCaloriesFromHealth] = useState(0);
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+  const [isHealthSynced, setIsHealthSynced] = useState(false);
+
   const [selectedMeal, setSelectedMeal] = useState<Meal | null>(null);
   const [confirmClearSteps, setConfirmClearSteps] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -236,6 +241,26 @@ export default function Dashboard({ profile, themeMode, onThemeChange }: Dashboa
 
   const isPastDay = !isSameDay(selectedDate, new Date()) && selectedDate < new Date();
 
+  const fetchHealthSync = async (dateKey: string) => {
+    try {
+      const { getDoc, doc } = await import('firebase/firestore');
+      const syncDoc = await getDoc(doc(db, 'users', profile.userId, 'health_sync', dateKey));
+      if (syncDoc.exists()) {
+        const data = syncDoc.data();
+        setStepsFromHealth(data.steps || 0);
+        setCaloriesFromHealth(data.activeCalories || 0);
+        setIsHealthSynced(true);
+        setLastSyncTime(data.syncedAt || null);
+      } else {
+        setStepsFromHealth(0);
+        setCaloriesFromHealth(0);
+        setIsHealthSynced(false);
+      }
+    } catch (err) {
+      console.error('Error fetching health sync:', err);
+    }
+  };
+
   useEffect(() => {
     // Try loading from localStorage first for faster UI
     const dateKey = format(selectedDate, 'yyyy-MM-dd');
@@ -251,6 +276,7 @@ export default function Dashboard({ profile, themeMode, onThemeChange }: Dashboa
       }
     }
     fetchData(selectedDate);
+    fetchHealthSync(dateKey);
   }, [profile.userId, selectedDate]);
 
   // Listen to health_sync dynamically
@@ -261,9 +287,16 @@ export default function Dashboard({ profile, themeMode, onThemeChange }: Dashboa
       
       const unsubscribe = onSnapshot(syncRef, (docSnap) => {
         if (docSnap.exists()) {
-          setHealthSyncData(docSnap.data());
+          const data = docSnap.data();
+          setStepsFromHealth(data.steps || 0);
+          setCaloriesFromHealth(data.activeCalories || 0);
+          setIsHealthSynced(true);
+          setLastSyncTime(data.syncedAt || null);
         } else {
-          setHealthSyncData(null);
+          setStepsFromHealth(0);
+          setCaloriesFromHealth(0);
+          setIsHealthSynced(false);
+          setLastSyncTime(null);
         }
       });
       return () => unsubscribe();
@@ -282,10 +315,20 @@ export default function Dashboard({ profile, themeMode, onThemeChange }: Dashboa
 
   const manualWorkoutBurn = workouts.reduce((sum, w) => sum + w.caloriesBurned, 0);
   const manualStepsBurn = steps?.caloriesBurned || 0;
+  const manualStepsCount = steps?.count || 0;
   
-  const isHealthSynced = !!healthSyncData;
-  const displayStepsCount = isHealthSynced ? healthSyncData.steps : (steps?.count || 0);
-  const totalBurned = isHealthSynced ? healthSyncData.activeCalories : (manualWorkoutBurn + manualStepsBurn);
+  const displayStepsCount = isHealthSynced && stepsFromHealth > manualStepsCount ? stepsFromHealth : manualStepsCount;
+  // If health is synced, its algorithms automatically aggregate workouts inside `activeCalories` directly
+  // unless user prefers additive. Typically Apple Health `activeEnergyBurned` is the exhaustive truth.
+  // We'll follow instructions: "Use caloriesFromHealth in the calories burned calculation alongside workout calories"
+  // Actually, instructions state: "Use caloriesFromHealth in the calories burned calculation alongside workout calories"
+  // Wait, if it's alongside, it's caloriesFromHealth + manualWorkoutBurn? 
+  // Apple Health's activeCalories includes workouts usually.
+  // The instructions: "Use caloriesFromHealth in the calories burned calculation alongside workout calories"
+  // "Synced steps and activeCalories added to burned calories total"
+  const totalBurned = isHealthSynced 
+    ? (caloriesFromHealth + manualWorkoutBurn) 
+    : (manualWorkoutBurn + manualStepsBurn);
 
   const netCalories = mealStats.calories - totalBurned;
   const isOverGoal = netCalories > userGoal.calories;
@@ -580,14 +623,14 @@ export default function Dashboard({ profile, themeMode, onThemeChange }: Dashboa
                           )}
                         </div>
                         <p className="text-2xl font-bold text-[#5A6E4B]">{totalBurned}</p>
-                        {isHealthSynced && healthSyncData?.syncedAt && (
-                          <p className="text-[9px] text-[#8E8D8A] mt-2 font-medium">Last synced: {format(new Date(healthSyncData.syncedAt), 'h:mm a')}</p>
+                        {isHealthSynced && lastSyncTime && (
+                          <p className="text-[9px] text-[#8E8D8A] mt-2 font-medium">Last synced: {format(new Date(lastSyncTime), 'h:mm a')}</p>
                         )}
                       </div>
                       <div className="col-span-2 p-8 lg:p-10 rounded-[40px] bg-[#2D2D2A] text-white overflow-hidden shadow-2xl">
                         <div className="flex justify-between items-center mb-6">
                           <p className="text-xs font-black uppercase tracking-[0.2em] opacity-60">Daily Macros</p>
-                          <button onClick={() => setShowGoalEditor(true)} className="text-[10px] font-bold uppercase tracking-wider bg-white dark:bg-[#2D2D2A]/10 px-3 py-1.5 rounded-full hover:bg-white dark:bg-[#2D2D2A]/20 transition-colors cursor-pointer flex items-center gap-1">
+                          <button onClick={() => setShowGoalEditor(true)} className="text-[10px] font-bold uppercase tracking-wider bg-[#3D3D3A] dark:bg-white/10 text-[#F8F7F2] dark:text-[#F8F7F2] px-3 py-1.5 rounded-full hover:bg-[#4D4D4A] dark:hover:bg-white/20 transition-colors cursor-pointer flex items-center gap-1">
                             <Target className="h-3 w-3" /> Edit Goal
                           </button>
                         </div>
