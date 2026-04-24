@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { db } from '../lib/firebase';
-import { collection, addDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, Timestamp, doc, getDoc, setDoc } from 'firebase/firestore';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Camera, X, Loader2, Check, AlertCircle, Upload, Barcode } from 'lucide-react';
@@ -14,11 +14,12 @@ interface MealLoggerProps {
   userId: string;
   onClose: () => void;
   onLogged: () => void;
+  onAnalyzeBackground: (file: File) => void;
 }
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-export default function MealLogger({ userId, onClose, onLogged }: MealLoggerProps) {
+export default function MealLogger({ userId, onClose, onLogged, onAnalyzeBackground }: MealLoggerProps) {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
@@ -157,16 +158,11 @@ export default function MealLogger({ userId, onClose, onLogged }: MealLoggerProp
 
       setFile(selectedFile);
       
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        setPreview(result);
-      };
-      reader.readAsDataURL(selectedFile);
-      
-      setError(null);
+      // We no longer need to show preview in the modal if we are closing immediately
+      onAnalyzeBackground(selectedFile);
+      onClose();
     }
-  }, []);
+  }, [onAnalyzeBackground, onClose]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -179,8 +175,8 @@ export default function MealLogger({ userId, onClose, onLogged }: MealLoggerProp
     noClick: scanningBarcode // prevent opening file dialog if we are clicking inside to use barcode, actually we separate them
   } as any);
 
-  const analyzeImage = async () => {
-    if (!file) return;
+  const analyzeImage = async (fileToAnalyze: File | null = file) => {
+    if (!fileToAnalyze) return;
 
     setAnalyzing(true);
     setError(null);
@@ -196,19 +192,34 @@ export default function MealLogger({ userId, onClose, onLogged }: MealLoggerProp
           const base64 = (reader.result as string).split(',')[1];
           resolve(base64);
         };
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(fileToAnalyze);
       });
 
       const base64 = await base64Promise;
 
-      const prompt = `Identify the food in this image. Provide a JSON response with:
-- name (string)
-- calories (total number)
-- protein (grams)
-- carbs (grams)
-- fats (grams)
-- ingredients: array of objects with { name: string, calories: number }
-ONLY return the JSON object, nothing else.`;
+      const prompt = `You are a professional nutritionist and food recognition AI with expertise in portion estimation.
+
+Analyze this food image carefully:
+- Identify every food item visible
+- Estimate portion sizes by comparing to plate size, utensils, hands, or standard serving sizes
+- Account for cooking method (fried, boiled, grilled affects calories significantly)
+- If it's a restaurant dish, use typical restaurant portion sizes
+- Be slightly conservative with estimates
+- Use USDA nutrition database values as reference
+
+Return ONLY a valid JSON object, no markdown, no explanation:
+{
+  "name": "specific descriptive food name",
+  "portion": "estimated portion (e.g. 300g, 1 large plate)",
+  "calories": 0,
+  "protein": 0,
+  "carbs": 0,
+  "fats": 0,
+  "confidence": "high or medium or low",
+  "ingredients": [
+    {"name": "ingredient name", "calories": 0}
+  ]
+}`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
@@ -218,7 +229,7 @@ ONLY return the JSON object, nothing else.`;
             { 
               inlineData: { 
                 data: base64, 
-                mimeType: file.type || 'image/jpeg' 
+                mimeType: fileToAnalyze.type || 'image/jpeg' 
               } 
             }
           ]
@@ -319,6 +330,43 @@ ONLY return the JSON object, nothing else.`;
 
       await addDoc(collection(db, 'users', userId, 'meals'), mealData);
       
+      // Update streak
+      try {
+        const streakRef = doc(db, 'users', userId, 'streak', 'default');
+        const streakDoc = await getDoc(streakRef);
+        const todayD = new Date();
+        // offset to local timezone securely
+        const todayStr = new Date(todayD.getTime() - todayD.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+        
+        const yesterdayDate = new Date(todayD.getTime() - 86400000);
+        const yesterdayStr = new Date(yesterdayDate.getTime() - yesterdayDate.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+
+        if (streakDoc.exists()) {
+          const sData = streakDoc.data();
+          if (sData.lastLoggedDate !== todayStr) {
+            let newStreak = sData.currentCount || 0;
+            if (sData.lastLoggedDate === yesterdayStr) {
+              newStreak += 1;
+            } else {
+              newStreak = 1;
+            }
+            await setDoc(streakRef, {
+              currentCount: newStreak,
+              bestCount: Math.max(sData.bestCount || 0, newStreak),
+              lastLoggedDate: todayStr,
+            }, { merge: true });
+          }
+        } else {
+          await setDoc(streakRef, {
+            currentCount: 1,
+            bestCount: 1,
+            lastLoggedDate: todayStr,
+          });
+        }
+      } catch (e) {
+        console.error('Streak update failed', e);
+      }
+
       onLogged();
       onClose();
     } catch (err) {
@@ -400,19 +448,27 @@ ONLY return the JSON object, nothing else.`;
                 </div>
               </div>
             ) : (
-              <div className="space-y-8">
+              <div className="space-y-6">
                 {preview === 'barcode' ? (
-                   <div className="flex items-center justify-center h-32 bg-[#F8F7F2] dark:bg-[#1a1a18] rounded-[32px] border border-[#E8E6E0] dark:border-[#3D3D3A]">
-                     <Barcode className="h-10 w-10 text-[#8E8D8A]" />
-                     <span className="ml-3 font-bold text-[#8E8D8A]">Barcode Scanned</span>
-                     <Button
-                       size="icon"
-                       variant="ghost"
-                       className="ml-4 rounded-full"
-                       onClick={() => { setFile(null); setPreview(null); setResult(null); }}
-                     >
-                       <X className="h-4 w-4" />
-                     </Button>
+                   <div className="relative flex flex-col items-center justify-center p-8 bg-[#F8F7F2] dark:bg-[#1a1a18] rounded-[32px] border border-[#E8E6E0] dark:border-[#3D3D3A] overflow-hidden">
+                     <Barcode className="h-12 w-12 text-[#8E8D8A] mb-2" />
+                     <span className="font-bold text-[#8E8D8A]">Barcode Scanned</span>
+                     {analyzing && (
+                       <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center backdrop-blur-sm z-10 rounded-[32px]">
+                         <Loader2 className="h-8 w-8 animate-spin text-white mb-2" />
+                         <p className="text-white font-bold text-sm text-center px-4">Retrieving nutrition...</p>
+                       </div>
+                     )}
+                     {!analyzing && (
+                       <Button
+                         size="icon"
+                         variant="ghost"
+                         className="absolute right-4 top-4 rounded-full"
+                         onClick={() => { setFile(null); setPreview(null); setResult(null); }}
+                       >
+                         <X className="h-5 w-5" />
+                       </Button>
+                     )}
                    </div>
                 ) : (
                   <div className="relative w-full aspect-square min-h-[250px] overflow-hidden rounded-[32px] group ring-1 ring-[#E8E6E0] bg-[#F8F7F2] dark:bg-[#1a1a18]">
@@ -429,37 +485,60 @@ ONLY return the JSON object, nothing else.`;
                         borderRadius: '16px'
                       }} 
                     />
-                    <Button
-                      size="icon"
-                      className="absolute right-6 top-6 h-10 w-10 rounded-full bg-black/40 text-white backdrop-blur-lg hover:bg-black/60 transition-all z-10"
-                      onClick={() => { setFile(null); setPreview(null); setResult(null); }}
-                    >
-                      <X className="h-5 w-5" />
-                    </Button>
+                    {analyzing && (
+                      <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center backdrop-blur-md z-10">
+                        <Loader2 className="h-10 w-10 animate-spin text-white mb-3" />
+                        <p className="text-white font-bold text-lg text-center px-4">Analyzing your meal...</p>
+                      </div>
+                    )}
+                    {!analyzing && (
+                      <Button
+                        size="icon"
+                        className="absolute right-6 top-6 h-10 w-10 rounded-full bg-black/40 text-white backdrop-blur-lg hover:bg-black/60 transition-all z-20"
+                        onClick={() => { setFile(null); setPreview(null); setResult(null); }}
+                      >
+                        <X className="h-5 w-5" />
+                      </Button>
+                    )}
                   </div>
                 )}
 
-                {analyzing ? (
-                  <div className="flex flex-col items-center justify-center py-12 space-y-6">
-                    <div className="relative h-16 w-16">
-                      <Loader2 className="h-16 w-16 animate-spin text-[#5A6E4B] stroke-[3]" />
-                    </div>
-                    <div className="text-center">
-                      <p className="text-xl font-bold text-[#2D2D2A] dark:text-[#F8F7F2]">Analyzing...</p>
-                      <p className="text-sm text-[#8E8D8A]">Retrieving nutrition</p>
-                    </div>
+                {error && (
+                  <div className="flex items-center gap-3 rounded-[20px] bg-[#E57373]/10 p-5 text-sm font-medium text-[#E57373]">
+                    <AlertCircle className="h-6 w-6 shrink-0" />
+                    <p>{error}</p>
                   </div>
-                ) : result ? (
-                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="space-y-6 max-h-[50vh] overflow-y-auto pr-2">
+                )}
+
+                {result && !analyzing && (
+                  <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="space-y-6 max-h-[50vh] overflow-y-auto pr-2 pb-6">
                     <div className="rounded-[24px] bg-[#F8F7F2] dark:bg-[#1a1a18] p-6 border border-[#E8E6E0] dark:border-[#3D3D3A]">
-                      <h4 className="text-xl font-serif font-bold mb-4 flex items-center justify-between text-[#2D2D2A] dark:text-[#F8F7F2]">
-                        {result.name}
-                      </h4>
+                      <div className="flex items-start justify-between gap-4 mb-4">
+                        <div>
+                          <h4 className="text-xl font-serif font-bold text-[#2D2D2A] dark:text-[#F8F7F2]">
+                            {result.name}
+                          </h4>
+                          {result.portion && (
+                            <p className="text-sm font-medium text-[#8E8D8A] mt-1 drop-shadow-sm">{result.portion}</p>
+                          )}
+                        </div>
+                        {result.confidence && result.confidence.toLowerCase() === 'low' ? (
+                          <div className="flex items-center gap-1.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-500 px-2.5 py-1 rounded-full shrink-0 shadow-sm border border-yellow-200 dark:border-yellow-900">
+                            <AlertCircle className="h-3.5 w-3.5" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider">Low Confidence</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 bg-[#5A6E4B]/10 dark:bg-[#5A6E4B]/20 text-[#5A6E4B] px-2.5 py-1 rounded-full shrink-0 shadow-sm border border-[#5A6E4B]/20">
+                            <Check className="h-3.5 w-3.5" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider">High Confidence</span>
+                          </div>
+                        )}
+                      </div>
                       
                       {/* Servings Control */}
                       <div className="flex items-center justify-between border-b border-[#E8E6E0] dark:border-[#3D3D3A] pb-4 mb-4">
                         <span className="font-bold text-[#8E8D8A] text-sm uppercase tracking-widest">Servings</span>
-                        <div className="flex items-center gap-4 bg-white dark:bg-[#2D2D2A] rounded-xl ring-1 ring-[#E8E6E0] p-1">
+                        <div className="flex items-center gap-4 bg-white dark:bg-[#2D2D2A] rounded-xl ring-1 ring-[#E8E6E0] p-1 shadow-sm">
                           <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => setServings(Math.max(1, servings - 1))}>-</Button>
                           <span className="text-lg font-bold w-6 text-center">{servings}</span>
                           <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => setServings(servings + 1)}>+</Button>
@@ -487,24 +566,16 @@ ONLY return the JSON object, nothing else.`;
                         </div>
                       </div>
                     </div>
-                    <Button className="w-full h-16 bg-[#5A6E4B] text-xl font-bold rounded-[20px] shadow-lg hover:bg-[#4A5E3B] transition-all active:scale-[0.98]" onClick={confirmLog} disabled={saving}>
+                    {result.confidence && result.confidence.toLowerCase() === 'low' && (
+                      <p className="text-xs font-bold text-center text-yellow-600 dark:text-yellow-500/80 flex items-center justify-center gap-1.5 pb-2">
+                        <AlertCircle className="h-4 w-4" />
+                        ⚠️ Tap "Fix Issue" in details if looking wrong.
+                      </p>
+                    )}
+                    <Button className="w-full h-16 bg-[#5A6E4B] text-xl font-bold rounded-[20px] shadow-lg hover:bg-[#4A5E3B] transition-all active:scale-[0.98] mt-4" onClick={confirmLog} disabled={saving}>
                       {saving ? <Loader2 className="mr-3 h-6 w-6 animate-spin" /> : <Check className="mr-3 h-6 w-6" />} Log this meal
                     </Button>
                   </motion.div>
-                ) : (
-                  <div className="space-y-6">
-                    {error && (
-                      <div className="flex items-center gap-3 rounded-[20px] bg-[#E57373]/10 p-5 text-sm font-medium text-[#E57373]">
-                        <AlertCircle className="h-6 w-6 shrink-0" />
-                        <p>{error}</p>
-                      </div>
-                    )}
-                    {preview !== 'barcode' && (
-                      <Button className="w-full h-16 bg-[#5A6E4B] text-xl font-bold rounded-[20px] shadow-lg hover:bg-[#4A5E3B] transition-all active:scale-[0.98]" onClick={analyzeImage}>
-                        <Upload className="mr-3 h-6 w-6" /> Analyze with Gemini AI
-                      </Button>
-                    )}
-                  </div>
                 )}
               </div>
             )}

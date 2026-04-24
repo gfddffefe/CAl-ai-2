@@ -66,4 +66,6 @@ export interface AnalysisResult {
   fats: number;
   ingredients?: Ingredient[];
   servings?: number;
+  portion?: string;
+  confidence?: 'high' | 'medium' | 'low' | string;
 }

@@ -110,5 +110,13 @@ service cloud.firestore {
       allow read: if isOwner(userId);
       allow write: if false;
     }
+
+    match /users/{userId}/weight_logs/{logId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    match /users/{userId}/streak/{streakId} {
+      allow read, write: if isOwner(userId);
+    }
   }
 }

@@ -5,9 +5,10 @@ import { UserProfile, Meal, Workout, StepLog } from '../types';
 import { Button } from './ui/button';
 import { Progress } from './ui/progress';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Plus, Settings, History, Utensils, PieChart as PieChartIcon, Camera, Dumbbell, Footprints, TrendingUp, X, Menu, LogOut, ChevronRight, ChevronLeft, Trash2, Target, HeartPulse, Sun, Moon } from 'lucide-react';
-import { format, startOfDay, addDays, subDays, isSameDay, startOfWeek, eachDayOfInterval, addWeeks, subWeeks } from 'date-fns';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
+import { Plus, Settings, History, Utensils, PieChart as PieChartIcon, Camera, Dumbbell, Footprints, TrendingUp, X, Menu, LogOut, ChevronRight, ChevronLeft, Trash2, Target, HeartPulse, Sun, Moon, Scale, Flame, Bell, BellOff, MessageSquareText, Loader2 } from 'lucide-react';
+import { format, startOfDay, addDays, subDays, isSameDay, startOfWeek, eachDayOfInterval, addWeeks, subWeeks, getISOWeek, differenceInDays } from 'date-fns';
+import { PieChart, Pie, Cell, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip } from 'recharts';
+import { GoogleGenAI } from '@google/genai';
 import MealLogger from './MealLogger';
 import WorkoutLogger from './WorkoutLogger';
 import StepTracker from './StepTracker';
@@ -15,6 +16,7 @@ import GoalEditor from './GoalEditor';
 import HealthSyncModal from './HealthSyncModal';
 import MealDetailModal from './MealDetailModal';
 import { motion, AnimatePresence, useAnimation, PanInfo } from 'motion/react';
+import { analyzeAndLogMeal, BackgroundAnalysis } from '../lib/analyzeMeal';
 
 const SwipeToDeleteItem = ({ children, onDelete, isReadOnly }: { children: React.ReactNode, onDelete: () => void, isReadOnly: boolean }) => {
   const controls = useAnimation();
@@ -106,9 +108,11 @@ export default function Dashboard({ profile, themeMode, onThemeChange }: Dashboa
   const [showStepTracker, setShowStepTracker] = useState(false);
   const [showGoalEditor, setShowGoalEditor] = useState(false);
   const [showHealthSync, setShowHealthSync] = useState(false);
+  const [bgAnalysis, setBgAnalysis] = useState<BackgroundAnalysis | null>(null);
   
   const [stepsFromHealth, setStepsFromHealth] = useState(0);
   const [caloriesFromHealth, setCaloriesFromHealth] = useState(0);
+  const [appleWorkouts, setAppleWorkouts] = useState<any[]>([]);
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const [isHealthSynced, setIsHealthSynced] = useState(false);
 
@@ -116,6 +120,19 @@ export default function Dashboard({ profile, themeMode, onThemeChange }: Dashboa
   const [confirmClearSteps, setConfirmClearSteps] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // New Features State
+  const [weightLogs, setWeightLogs] = useState<any[]>([]);
+  const [showWeightModal, setShowWeightModal] = useState(false);
+  const [weightInput, setWeightInput] = useState((profile.currentWeight || profile.weight || '').toString());
+  
+  const [streakData, setStreakData] = useState({ currentCount: 0, bestCount: 0, lastLoggedDate: '' });
+  
+  const [notificationsEnabled, setNotificationsEnabled] = useState(() => localStorage.getItem('notificationsEnabled') === 'true');
+  
+  const [weeklyMeals, setWeeklyMeals] = useState<Meal[]>([]);
+  const [weeklyWorkouts, setWeeklyWorkouts] = useState<Workout[]>([]);
+  const [geminiTip, setGeminiTip] = useState('');
 
   const [userGoal, setUserGoal] = useState(() => {
     const cached = localStorage.getItem(`user_goal_${profile.userId}`);
@@ -271,6 +288,7 @@ export default function Dashboard({ profile, themeMode, onThemeChange }: Dashboa
     // Reset to 0 when switching days before new data loads
     setStepsFromHealth(0);
     setCaloriesFromHealth(0);
+    setAppleWorkouts([]);
     setIsHealthSynced(false);
     setLastSyncTime(null);
 
@@ -285,12 +303,14 @@ export default function Dashboard({ profile, themeMode, onThemeChange }: Dashboa
           const data = snapshot.data();
           setStepsFromHealth(data.steps || 0);
           setCaloriesFromHealth(data.activeCalories || 0);
+          setAppleWorkouts(data.appleWorkouts || []);
           setIsHealthSynced(true);
           setLastSyncTime(data.syncedAt || null);
         } else {
           // No health data for this day — reset to 0
           setStepsFromHealth(0);
           setCaloriesFromHealth(0);
+          setAppleWorkouts([]);
           setIsHealthSynced(false);
           setLastSyncTime(null);
         }
@@ -299,6 +319,205 @@ export default function Dashboard({ profile, themeMode, onThemeChange }: Dashboa
 
     return () => unsubscribe();
   }, [profile.userId, selectedDate]);
+
+  // Fetch Streak and Initial Weight Logs
+  useEffect(() => {
+    import('firebase/firestore').then(async ({ doc, getDoc, collection, query, orderBy, limit, getDocs }) => {
+      // 1. Streak
+      const streakRef = doc(db, 'users', profile.userId, 'streak', 'default');
+      const sDoc = await getDoc(streakRef);
+      if (sDoc.exists()) {
+        setStreakData(sDoc.data() as any);
+      }
+      
+      // 2. Weight logs (last 8 weeks)
+      const weightQ = query(
+        collection(db, 'users', profile.userId, 'weight_logs'),
+        orderBy('id', 'desc'),
+        limit(8)
+      );
+      const wSnap = await getDocs(weightQ);
+      const wLogs = wSnap.docs.map(d => d.data()).reverse();
+      setWeightLogs(wLogs);
+    });
+  }, [profile.userId]);
+
+  // Fetch Weekly Data and Gemini Tip
+  useEffect(() => {
+    const fetchWeeklyData = async () => {
+      const weekEnd = addDays(currentWeekStart, 7);
+      const startTS = Timestamp.fromDate(currentWeekStart);
+      const endTS = Timestamp.fromDate(weekEnd);
+      
+      const mealsQ = query(
+        collection(db, 'users', profile.userId, 'meals'),
+        where('timestamp', '>=', startTS),
+        where('timestamp', '<', endTS),
+        orderBy('timestamp', 'asc')
+      );
+      
+      const workoutsQ = query(
+        collection(db, 'users', profile.userId, 'workouts'),
+        where('timestamp', '>=', startTS),
+        where('timestamp', '<', endTS),
+        orderBy('timestamp', 'asc')
+      );
+
+      const [mSnap, wSnap] = await Promise.all([getDocs(mealsQ), getDocs(workoutsQ)]);
+      const weekMeals = mSnap.docs.map(d => d.data() as Meal);
+      setWeeklyMeals(weekMeals);
+      const weekWorkouts = wSnap.docs.map(d => d.data() as Workout);
+      setWeeklyWorkouts(weekWorkouts);
+
+      // Generate Gemini tip 
+      if (weekMeals.length > 0) {
+        try {
+          const avgStats = weekMeals.reduce((acc, m) => {
+            acc.calories += m.calories;
+            acc.protein += m.protein;
+            acc.carbs += m.carbs;
+            acc.fats += m.fats;
+            return acc;
+          }, {calories: 0, protein: 0, carbs: 0, fats: 0});
+          
+          const daysWithMeals = new Set(weekMeals.map(m => new Date(m.timestamp!.seconds * 1000).toDateString())).size;
+          const avgCals = Math.round(avgStats.calories / Math.max(1, daysWithMeals));
+          const avgP = Math.round(avgStats.protein / Math.max(1, daysWithMeals));
+          const avgC = Math.round(avgStats.carbs / Math.max(1, daysWithMeals));
+          const avgF = Math.round(avgStats.fats / Math.max(1, daysWithMeals));
+          
+          const res = await fetch('/api/tip', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+              avgCalories: avgCals,
+              goalCalories: userGoal.calories,
+              protein: avgP,
+              goalProtein: userGoal.macros.protein,
+              carbs: avgC,
+              goalCarbs: userGoal.macros.carbs,
+              fats: avgF,
+              goalFats: userGoal.macros.fats
+            })
+          });
+          const data = await res.json();
+          if (data.tip) {
+            setGeminiTip(data.tip);
+          }
+        } catch(e) {}
+      }
+    };
+    fetchWeeklyData();
+  }, [currentWeekStart, profile.userId, userGoal]);
+
+  // Push Notifications Setup
+  useEffect(() => {
+    if (!('Notification' in window)) return;
+    
+    // Check permission on mount
+    if (Notification.permission === 'granted' && !notificationsEnabled) {
+      setNotificationsEnabled(true);
+      localStorage.setItem('notificationsEnabled', 'true');
+    }
+
+    // Schedule intervals if enabled
+    let checkInterval: any;
+    if (notificationsEnabled && Notification.permission === 'granted') {
+      const sentNotifications: Record<string, boolean> = {};
+      
+      checkInterval = setInterval(() => {
+        const now = new Date();
+        const dateStr = format(now, 'yyyy-MM-dd');
+        const hour = now.getHours();
+        const min = now.getMinutes();
+        const day = now.getDay();
+        
+        const triggerNotification = (key: string, title: string, options: any) => {
+          const fullKey = `${dateStr}-${key}`;
+          if (!sentNotifications[fullKey]) {
+            new Notification(title, options);
+            sentNotifications[fullKey] = true;
+          }
+        };
+
+        if (hour === 12 && min === 0) {
+          triggerNotification('lunch', 'Log your lunch! 🍽️', { body: "Don't forget to track what you're eating." });
+        }
+        if (hour === 20 && min === 0) {
+          triggerNotification('dinner', 'Log your dinner to keep your streak! 🔥', { body: "Keep your daily streak alive by tracking your last meals." });
+        }
+        if (day === 1 && hour === 9 && min === 0) {
+          triggerNotification('weight', 'Time to log your weekly weight! ⚖️', { body: "Track your progress by entering your current weight." });
+        }
+      }, 60000); // Check every minute
+    }
+    
+    return () => {
+      if (checkInterval) clearInterval(checkInterval);
+    };
+  }, [notificationsEnabled]);
+
+  const toggleNotifications = async () => {
+    if (!('Notification' in window)) return;
+    
+    if (!notificationsEnabled) {
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        setNotificationsEnabled(true);
+        localStorage.setItem('notificationsEnabled', 'true');
+      }
+    } else {
+      // Browsers don't allow "revoking" easily from code, but we can disable it in the app settings
+      setNotificationsEnabled(false);
+      localStorage.setItem('notificationsEnabled', 'false');
+    }
+  };
+
+  const getWeekKey = (date: Date) => {
+    const start = startOfWeek(date, { weekStartsOn: 1 });
+    return `${format(start, 'yyyy')}-W${getISOWeek(start)}`;
+  };
+  const currentWeekKey = getWeekKey(new Date());
+  
+  const hasLoggedWeightThisWeek = weightLogs.some(w => w.id === currentWeekKey);
+
+  const saveWeight = async () => {
+    try {
+      const weightNum = parseFloat(weightInput);
+      if (isNaN(weightNum)) return;
+      
+      const { setDoc, doc, Timestamp } = await import('firebase/firestore');
+      const weekKey = getWeekKey(new Date());
+      await setDoc(doc(db, 'users', profile.userId, 'weight_logs', weekKey), {
+        id: weekKey,
+        weight: weightNum,
+        timestamp: Timestamp.now()
+      });
+      
+      setWeightLogs([{ id: weekKey, weight: weightNum, timestamp: new Date() }, ...weightLogs]);
+      setShowWeightModal(false);
+    } catch(e) {
+      console.error(e);
+    }
+  };
+
+  const handleBackgroundAnalysis = (file: File) => {
+    analyzeAndLogMeal(
+      profile.userId,
+      file,
+      selectedDate,
+      (status) => {
+        setBgAnalysis(status);
+        if (status.status === 'success' || status.status === 'error') {
+          setTimeout(() => setBgAnalysis(null), 4000);
+        }
+      },
+      () => {
+        // success handler, trigger data fetch
+        fetchData(selectedDate);
+      }
+    );
+  };
 
   const mealStats = meals.reduce(
     (acc, meal) => ({
@@ -405,6 +624,26 @@ export default function Dashboard({ profile, themeMode, onThemeChange }: Dashboa
 
   return (
     <div className="flex min-h-screen bg-[#F8F7F2] dark:bg-[#1a1a18] font-sans text-[#2D2D2A] dark:text-[#F8F7F2] overflow-x-hidden transition-colors">
+      <AnimatePresence>
+        {bgAnalysis && (
+          <motion.div
+            initial={{ y: -100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -100, opacity: 0 }}
+            className="fixed top-4 left-0 right-0 z-50 flex justify-center px-4"
+          >
+            <div className={`shadow-xl rounded-full px-6 py-3 flex items-center gap-3 backdrop-blur-md font-bold text-sm border
+              ${bgAnalysis.status === 'analyzing' ? 'bg-white/90 dark:bg-[#2D2D2A]/90 text-[#2D2D2A] dark:text-[#F8F7F2] border-[#E8E6E0] dark:border-[#3D3D3A]' : ''}
+              ${bgAnalysis.status === 'success' ? 'bg-[#5A6E4B]/90 text-white border-[#5A6E4B]' : ''}
+              ${bgAnalysis.status === 'error' ? 'bg-[#E57373]/90 text-white border-[#E57373]' : ''}
+            `}>
+              {bgAnalysis.status === 'analyzing' && <><Loader2 className="h-4 w-4 animate-spin text-[#5A6E4B]"/> 🔄 Analyzing your meal...</>}
+              {bgAnalysis.status === 'success' && <>✅ Logged: {bgAnalysis.mealName} — {bgAnalysis.calories} kcal</>}
+              {bgAnalysis.status === 'error' && <>❌ Could not analyze photo — tap to retry ({bgAnalysis.errorMsg})</>}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {/* Sidebar - Desktop */}
       <aside className="hidden lg:flex w-72 flex-col border-r border-[#E8E6E0] dark:border-[#3D3D3A] bg-white dark:bg-[#2D2D2A] p-8 sticky top-0 h-screen transition-colors">
         <div className="flex items-center gap-2 text-2xl font-serif font-bold text-[#5A6E4B] mb-12">
@@ -451,6 +690,17 @@ export default function Dashboard({ profile, themeMode, onThemeChange }: Dashboa
           <Button 
             variant="ghost" 
             className="w-full justify-start gap-3 rounded-xl px-4 py-3 font-medium text-[#8E8D8A] hover:bg-[#F8F7F2] dark:hover:bg-[#1a1a18] hover:text-[#5A6E4B] mb-2"
+            onClick={toggleNotifications}
+          >
+            {notificationsEnabled ? (
+              <><Bell className="h-5 w-5 text-[#5A6E4B]" /> <span className="text-[#5A6E4B]">Notifications On</span></>
+            ) : (
+              <><BellOff className="h-5 w-5" /> Notifications Off</>
+            )}
+          </Button>
+          <Button 
+            variant="ghost" 
+            className="w-full justify-start gap-3 rounded-xl px-4 py-3 font-medium text-[#8E8D8A] hover:bg-[#F8F7F2] dark:hover:bg-[#1a1a18] hover:text-[#5A6E4B] mb-2"
             onClick={cycleTheme}
           >
             {renderThemeIcon()}
@@ -490,9 +740,17 @@ export default function Dashboard({ profile, themeMode, onThemeChange }: Dashboa
         {/* Mobile Header */}
         <header className="lg:hidden flex flex-col items-stretch bg-white dark:bg-[#2D2D2A] border-b border-[#E8E6E0] dark:border-[#3D3D3A] sticky top-0 z-40 transition-colors">
           <div className="flex items-center justify-between p-6">
-            <div className="flex items-center gap-2 text-xl font-serif font-bold text-[#5A6E4B]">
-              <Utensils className="h-5 w-5" />
-              <span>Cal AI</span>
+            <div className="flex items-center gap-3 text-xl font-serif font-bold text-[#5A6E4B]">
+              <div className="flex items-center gap-2">
+                <Utensils className="h-5 w-5" />
+                <span>Cal AI</span>
+              </div>
+              {streakData.currentCount > 0 && (
+                <div className="flex items-center gap-1 bg-orange-100 dark:bg-orange-950 text-orange-600 dark:text-orange-400 px-2.5 py-0.5 rounded-full border border-orange-200 dark:border-orange-800">
+                  <Flame className="h-3.5 w-3.5 fill-orange-500" />
+                  <span className="font-bold text-xs">{streakData.currentCount}</span>
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="icon" onClick={cycleTheme} className="text-[#8E8D8A]">
@@ -550,11 +808,19 @@ export default function Dashboard({ profile, themeMode, onThemeChange }: Dashboa
               {/* Welcome Text & Desktop Day Selector */}
               <div className="col-span-1 xl:col-span-2 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                 <div>
-                  <h1 className="text-3xl lg:text-4xl font-serif font-bold text-[#2D2D2A] dark:text-[#F8F7F2]">
-                    Hi, {profile.name.split(' ')[0]}
-                  </h1>
+                  <div className="flex items-center gap-3">
+                    <h1 className="text-3xl lg:text-4xl font-serif font-bold text-[#2D2D2A] dark:text-[#F8F7F2]">
+                      Hi, {profile.name.split(' ')[0]}
+                    </h1>
+                    {streakData.currentCount > 0 && (
+                      <div className="flex items-center gap-1.5 bg-orange-100 dark:bg-orange-950 text-orange-600 dark:text-orange-400 px-3 py-1 rounded-full border border-orange-200 dark:border-orange-800" title={`Best streak: ${streakData.bestCount} days`}>
+                        <Flame className="h-4 w-4 fill-orange-500" />
+                        <span className="font-bold text-sm">{streakData.currentCount}</span>
+                      </div>
+                    )}
+                  </div>
                   <p className="text-[#8E8D8A] mt-1 lg:text-lg">
-                    {format(selectedDate, 'EEEE, MMM d')} • <span className="text-[#5A6E4B] font-medium">{profile.currentWeight || profile.weight} kg</span>
+                    {format(selectedDate, 'EEEE, MMM d')} • <span className="text-[#5A6E4B] font-medium">{weightLogs.length > 0 ? weightLogs[0].weight : (profile.currentWeight || profile.weight)} kg</span>
                   </p>
                 </div>
 
@@ -791,6 +1057,117 @@ export default function Dashboard({ profile, themeMode, onThemeChange }: Dashboa
                 </div>
               </div>
 
+              {/* Weekly Highlights */}
+              <div className="col-span-1 xl:col-span-2 space-y-6">
+                <h3 className="text-xl font-serif font-bold text-[#2D2D2A] dark:text-[#F8F7F2]">Weekly Overview</h3>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Goal Progress Comparison */}
+                  <Card className="rounded-[32px] border-[#E8E6E0] dark:border-[#3D3D3A] bg-white dark:bg-[#2D2D2A] p-6 lg:p-8 shadow-sm">
+                    {(() => {
+                      const avgStats = weeklyMeals.reduce((acc, m) => {
+                        acc.calories += m.calories;
+                        acc.protein += m.protein;
+                        acc.carbs += m.carbs;
+                        acc.fats += m.fats;
+                        return acc;
+                      }, {calories: 0, protein: 0, carbs: 0, fats: 0});
+                      
+                      const daysWithMealsSet = new Set(weeklyMeals.map(m => new Date(m.timestamp!.seconds * 1000).toDateString()));
+                      const daysWithMeals = Math.max(1, daysWithMealsSet.size);
+                      const avgCals = Math.round(avgStats.calories / daysWithMeals);
+                      const isWeeklyTracked = daysWithMealsSet.size >= 1;
+                      
+                      const daysOnTrack = Array.from(daysWithMealsSet).filter(dateString => {
+                         const dayCals = weeklyMeals.filter(m => new Date(m.timestamp!.seconds * 1000).toDateString() === dateString).reduce((s,m) => s + m.calories, 0);
+                         return dayCals <= userGoal.calories;
+                      }).length;
+
+                      const progressPercent = Math.min((daysOnTrack / 7) * 100, 100);
+
+                      return (
+                        <div className="space-y-6">
+                          <div className="flex items-center gap-4">
+                            <div className={`h-12 w-12 rounded-xl flex items-center justify-center shrink-0 ${avgCals <= userGoal.calories ? 'bg-[#5A6E4B]/10' : 'bg-[#E57373]/10'}`}>
+                              <Target className={`h-6 w-6 ${avgCals <= userGoal.calories ? 'text-[#5A6E4B]' : 'text-[#E57373]'}`} />
+                            </div>
+                            <div>
+                              <p className="text-xs font-black uppercase tracking-widest text-[#8E8D8A]">This Week's Pace</p>
+                              <p className="text-2xl font-bold flex items-end gap-2">
+                                {isWeeklyTracked ? avgCals : '--'} 
+                                <span className="text-sm font-normal opacity-50 mb-1">kcal / day avg</span>
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-xs font-bold text-[#8E8D8A]">
+                              <span>{daysOnTrack} days on track</span>
+                              <span>7 days</span>
+                            </div>
+                            <div className="h-2 w-full rounded-full bg-[#F1F3EE] dark:bg-[#3D3D3A] overflow-hidden">
+                              <div className={`h-full ${avgCals <= userGoal.calories ? 'bg-[#5A6E4B]' : 'bg-[#E57373]'}`} style={{ width: `${progressPercent}%` }} />
+                            </div>
+                          </div>
+
+                          <div className="pt-4 border-t border-[#E8E6E0] dark:border-[#3D3D3A]">
+                            <div className="flex items-start gap-4">
+                              <MessageSquareText className="h-6 w-6 text-[#5A6E4B] shrink-0" />
+                              <p className="text-sm font-medium italic text-[#2D2D2A] dark:text-[#F8F7F2] opacity-80">
+                                {geminiTip || (isWeeklyTracked ? "Analyzing your week..." : "Log some meals this week to get insights from Gemini.")}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </Card>
+
+                  {/* Weekly Weight Tracker */}
+                  <Card className="rounded-[32px] border-[#E8E6E0] dark:border-[#3D3D3A] bg-white dark:bg-[#2D2D2A] p-6 lg:p-8 shadow-sm flex flex-col justify-between cursor-pointer hover:border-[#5A6E4B] transition-colors group" onClick={() => setShowWeightModal(true)}>
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="h-12 w-12 rounded-xl bg-orange-100 dark:bg-orange-950 flex items-center justify-center shrink-0">
+                          <Scale className="h-6 w-6 text-orange-500" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-black uppercase tracking-widest text-[#8E8D8A]">Weekly Weight</p>
+                          <p className="text-2xl font-bold">
+                            {weightLogs.length > 0 ? weightLogs[0].weight : (profile.currentWeight || profile.weight)} <span className="text-sm font-normal opacity-50">kg</span>
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {!hasLoggedWeightThisWeek && (
+                        <div className="shrink-0 bg-[#5A6E4B] text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-md shadow-[#5A6E4B]/20 group-hover:scale-105 transition-transform">
+                          Log Weight
+                        </div>
+                      )}
+                    </div>
+
+                    {weightLogs.length > 1 ? (
+                      <div className="h-24 w-full mt-6">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={[...weightLogs].reverse()}>
+                            <defs>
+                              <linearGradient id="colorWeight" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#f97316" stopOpacity={0.3}/>
+                                <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
+                              </linearGradient>
+                            </defs>
+                            <Area type="monotone" dataKey="weight" stroke="#f97316" strokeWidth={3} fillOpacity={1} fill="url(#colorWeight)" />
+                            <YAxis domain={['dataMin - 2', 'dataMax + 2']} hide />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
+                    ) : (
+                      <div className="mt-8 text-center text-sm text-[#8E8D8A] font-medium opacity-50">
+                        Log weight more weeks to see your trend
+                      </div>
+                    )}
+                  </Card>
+                </div>
+              </div>
+
               {/* Right Column / Sidebar Sections */}
               <div className="space-y-8">
                 {/* Workout History Selected Date */}
@@ -939,6 +1316,27 @@ export default function Dashboard({ profile, themeMode, onThemeChange }: Dashboa
                      </SwipeToDeleteItem>
                    </div>
                  ))}
+                 
+                 {appleWorkouts?.map((aw, idx) => (
+                   <div key={`ahw-${idx}`} className="opacity-80 grayscale-[20%]">
+                     <Card className="p-4 rounded-2xl flex gap-4 items-center border-[#5A6E4B]/30 bg-[#5A6E4B]/5">
+                       <div className="h-12 w-12 rounded-xl bg-[#5A6E4B]/10 flex items-center justify-center">
+                         <HeartPulse className="h-5 w-5 text-[#5A6E4B]" />
+                       </div>
+                       <div>
+                         <p className="font-bold flex items-center gap-2">
+                           {aw.name} 
+                           <span className="text-[8px] uppercase font-black bg-[#5A6E4B] text-white px-2 py-0.5 rounded-full shrink-0">Apple Health</span>
+                         </p>
+                         <p className="text-xs text-[#8E8D8A]">{aw.duration} min • {aw.date?.substring(11, 16) || 'Synced'}</p>
+                       </div>
+                       <div className="ml-auto text-right">
+                         <p className="font-bold text-[#5A6E4B]">-{aw.calories} cal</p>
+                         <p className="text-[8px] text-[#8E8D8A] uppercase font-bold max-w-[80px] leading-tight">Included in sync</p>
+                       </div>
+                     </Card>
+                   </div>
+                 ))}
               </div>
             </div>
           )}
@@ -1058,6 +1456,17 @@ export default function Dashboard({ profile, themeMode, onThemeChange }: Dashboa
                   Sync Apple Health
                 </Button>
                 <Button 
+                  variant="ghost"
+                  className="w-full justify-start h-14 rounded-2xl text-[#8E8D8A] hover:bg-[#F8F7F2] dark:bg-[#1a1a18] font-bold gap-3 mb-2"
+                  onClick={() => { toggleNotifications(); setIsMobileMenuOpen(false); }}
+                >
+                  {notificationsEnabled ? (
+                    <><Bell className="h-5 w-5 text-[#5A6E4B]" /> <span className="text-[#5A6E4B]">Notifications On</span></>
+                  ) : (
+                    <><BellOff className="h-5 w-5" /> Notifications Off</>
+                  )}
+                </Button>
+                <Button 
                   className="w-full h-14 rounded-2xl bg-[#E57373]/10 text-[#E57373] hover:bg-[#E57373]/20 font-bold gap-3"
                   onClick={() => auth.signOut()}
                 >
@@ -1071,11 +1480,59 @@ export default function Dashboard({ profile, themeMode, onThemeChange }: Dashboa
       </AnimatePresence>
 
       <AnimatePresence>
+        {showWeightModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60 sm:justify-center sm:p-4 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="bg-white dark:bg-[#2D2D2A] rounded-t-[32px] sm:rounded-[32px] sm:max-w-md w-full mx-auto"
+            >
+              <div className="p-8">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-2xl font-serif font-bold text-[#2D2D2A] dark:text-[#F8F7F2]">Log Weight</h3>
+                  <Button variant="ghost" size="icon" onClick={() => setShowWeightModal(false)} className="rounded-full">
+                    <X className="h-6 w-6 text-[#8E8D8A]" />
+                  </Button>
+                </div>
+                <div className="space-y-6">
+                  <div className="text-center">
+                    <p className="text-sm font-bold text-[#8E8D8A] mb-4">Current Weight (kg/lbs)</p>
+                    <input 
+                      type="number"
+                      value={weightInput}
+                      onChange={(e) => setWeightInput(e.target.value)}
+                      className="text-center text-5xl font-black bg-transparent w-full border-none focus:outline-none focus:ring-0"
+                      placeholder="0.0"
+                      step="0.1"
+                    />
+                  </div>
+                  <Button 
+                    className="w-full h-14 rounded-2xl bg-[#5A6E4B] hover:bg-[#4A5E3B] text-white font-bold text-lg shadow-xl"
+                    onClick={saveWeight}
+                  >
+                    Save Log
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {showLogger && (
           <MealLogger 
             userId={profile.userId} 
             onClose={() => setShowLogger(false)} 
             onLogged={() => fetchData(selectedDate)} 
+            onAnalyzeBackground={handleBackgroundAnalysis}
           />
         )}
         {showWorkoutLogger && (

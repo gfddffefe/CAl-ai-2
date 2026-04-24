@@ -136,10 +136,25 @@ async function startServer() {
         : new Date().toISOString().split('T')[0];
       console.log('Using date:', dateKey);
 
-      console.log('Saving to Firestore:', { userId, steps, activeCalories, dateKey });
+      const workoutsMetric = metrics?.find((m: any) => 
+        m.name === 'workouts' || m.name === 'workout'
+      );
+      
+      const appleWorkouts = workoutsMetric?.data
+        ?.filter((d: any) => d.date?.startsWith(dateKey))
+        ?.map((w: any) => ({
+          name: w.name || w.workoutActivityType || 'Workout',
+          duration: Math.round(w.duration || 0),
+          calories: Math.round(w.activeEnergyBurned || w.qty || 0),
+          date: w.date,
+          source: 'Apple Health'
+        })) || [];
+
+      console.log('Saving to Firestore:', { userId, steps, activeCalories, dateKey, appleWorkouts: appleWorkouts.length });
       await db.collection('users').doc(userId).collection('health_sync').doc(dateKey).set({
         steps,
         activeCalories,
+        appleWorkouts,
         syncedAt: new Date().toISOString()
       }, { merge: true });
 
@@ -147,6 +162,30 @@ async function startServer() {
     } catch (error) {
       console.error('Health sync error:', error);
       res.status(500).json({ error: 'Failed to sync health data' });
+    }
+  });
+
+  app.post('/api/tip', async (req, res) => {
+    try {
+      const { avgCalories, goalCalories, protein, goalProtein, carbs, goalCarbs, fats, goalFats } = req.body;
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') {
+        return res.json({ tip: "Keep up the great work! You're making solid progress on your goals." });
+      }
+
+      const { GoogleGenAI } = await import('@google/genai');
+      const ai = new GoogleGenAI({ apiKey });
+      const prompt = `You are a motivating fitness coach. A user has averaged ${avgCalories} kcal / day this week. Their goal is ${goalCalories} kcal. Their macros are P:${protein}/${goalProtein} C:${carbs}/${goalCarbs} F:${fats}/${goalFats}. Write exactly 2 short, energetic sentences of motivational feedback or a quick tip based on these weekly averages. No long lists, no formatting.`;
+      
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: prompt
+      });
+      res.json({ tip: response.text });
+    } catch (e: any) {
+      console.error('Gemini tip error:', e.message || e);
+      // Fallback
+      res.json({ tip: "Stay consistent and keep pushing forward! Every day is a step closer to your goals." });
     }
   });
 
